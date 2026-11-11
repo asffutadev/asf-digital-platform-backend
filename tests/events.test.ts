@@ -1,51 +1,29 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll, vi } from "vitest";
 import request from "supertest";
 import { app } from "../src/app.js";
 import { logResponse } from "./helpers/logResponse.js";
+import { registerWithOffice, removeOfficesOf } from "./helpers/officeUser.js";
 
-const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL || "test2@example.com";
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "AdminTest2026x";
+vi.setConfig({ testTimeout: 300_000 });
 
-async function registerAndPromote(adminCookie: string, name: string, roleId: string) {
-  const reg = await request(app).post("/api/auth/register").send({
-    email: `vitest-events-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`,
-    password: "vitestpass123",
-    name,
-    departmentId: "other",
-    gender: "Male",
-    academicLevel: "300 Level",
-  });
-  expect(reg.status).toBe(201);
-  const cookie = reg.headers["set-cookie"]![0].split(";")[0];
-  const userId = reg.body.data.id;
-  await request(app).patch(`/api/members/${userId}/role`).set("Cookie", adminCookie).send({ action: "assign", roleId });
-  return cookie;
-}
+const officeUserIds: string[] = [];
+afterAll(async () => { await removeOfficesOf(officeUserIds); }, 120_000);
 
 describe("Events", () => {
-  let adminCookie: string;
+  let adminCookie: string; // the Publicity Coordinator, the only office that may write events
   let memberCookie: string;
   let presidentCookie: string;
   let eventId: string;
 
-  it("setup: login as admin, register a plain member and a President", async () => {
-    const login = await request(app).post("/api/auth/login").send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
-    logResponse("Events", "setup login (admin)", login.status, login.body);
-    expect(login.status).toBe(200);
-    adminCookie = login.headers["set-cookie"]![0].split(";")[0];
-
-    const reg = await request(app).post("/api/auth/register").send({
-      email: `vitest-events-mem-${Date.now()}@example.com`,
-      password: "vitestpass123",
-      name: "Funmilayo Ajayi",
-      departmentId: "other",
-      gender: "Female",
-      academicLevel: "100 Level",
-    });
-    expect(reg.status).toBe(201);
-    memberCookie = reg.headers["set-cookie"]![0].split(";")[0];
-
-    presidentCookie = await registerAndPromote(adminCookie, "Tunde Bello", "President / Executive");
+  it("setup: a Publicity Coordinator, a plain member and a President (by office)", async () => {
+    const publicity = await registerWithOffice("events-publicity", "publicity-coordinator");
+    const president = await registerWithOffice("events-president", "president");
+    const member = await registerWithOffice("events-member");
+    officeUserIds.push(publicity.id, president.id);
+    adminCookie = publicity.cookie;
+    presidentCookie = president.cookie;
+    memberCookie = member.cookie;
+    logResponse("Events", "setup (office holders created)", 201, { publicity: publicity.id, president: president.id });
   });
 
   it("Member is BLOCKED from creating an event", async () => {

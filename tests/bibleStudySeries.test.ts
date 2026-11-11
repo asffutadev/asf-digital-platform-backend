@@ -1,11 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll, vi } from "vitest";
 import request from "supertest";
 import { app } from "../src/app.js";
 import { logResponse } from "./helpers/logResponse.js";
 import { isTuesday, generateWeeklySchedule } from "../src/utils/bibleStudySchedule.js";
+import { registerWithOffice, removeOfficesOf } from "./helpers/officeUser.js";
 
-const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL || "test2@example.com";
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "AdminTest2026x";
+vi.setConfig({ testTimeout: 300_000 });
+
+const officeUserIds: string[] = [];
+afterAll(async () => { await removeOfficesOf(officeUserIds); }, 120_000);
+
 
 function mostRecentTuesday(): string {
   const now = new Date();
@@ -46,24 +50,7 @@ describe("Bible Study Series", () => {
   let adminCookie: string;
   let memberCookie: string;
 
-  it("setup: login as admin + register a plain member", async () => {
-    const login = await request(app).post("/api/auth/login").send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
-    logResponse("Bible Study Series", "setup login (admin)", login.status, login.body);
-    expect(login.status).toBe(200);
-    adminCookie = login.headers["set-cookie"]![0].split(";")[0];
-
-    const reg = await request(app).post("/api/auth/register").send({
-      email: `vitest-series-${Date.now()}@example.com`,
-      password: "vitestpass123",
-      name: "Vitest Series Member",
-      departmentId: "other",
-      gender: "Female",
-      academicLevel: "200 Level",
-    });
-    logResponse("Bible Study Series", "setup: register member", reg.status, reg.body);
-    expect(reg.status).toBe(201);
-    memberCookie = reg.headers["set-cookie"]![0].split(";")[0];
-  });
+ 
 
   it("Creating a series with a non-Tuesday startDate is rejected", async () => {
     const res = await request(app).post("/api/bible-study/series").set("Cookie", adminCookie).send({

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/requireAuth.js";
-import { requirePermission } from "../../middleware/requirePermission.js";
+import { requireOffice } from "../../middleware/requireOffice.js";
 import { list, current, getById, create, update, publish, uploadOutline, uploadMiddleware, createSeries, getSeries } from "./bibleStudy.controller.js";
 import * as aliasRepo from "./outlineAliases.repository.js";
 import * as bookAliasRepo from "./bibleBookAliases.repository.js";
@@ -24,7 +24,7 @@ function handleUpload(req: any, res: any, next: any) {
 
 
 bibleStudyRouter.get("/current", requireAuth, current);
-bibleStudyRouter.get("/aliases", requireAuth, requirePermission("bible_study.create"), async (req, res, next) => {
+bibleStudyRouter.get("/aliases", requireAuth, requireOffice("publicity-coordinator"), async (req, res, next) => {
   try {
     const aliases = await aliasRepo.listAliases();
     return sendSuccess(res, aliases);
@@ -32,7 +32,7 @@ bibleStudyRouter.get("/aliases", requireAuth, requirePermission("bible_study.cre
     next(err);
   }
 });
-bibleStudyRouter.post("/aliases", requireAuth, requirePermission("bible_study.create"), async (req, res, next) => {
+bibleStudyRouter.post("/aliases", requireAuth, requireOffice("publicity-coordinator"), async (req, res, next) => {
   try {
     const { canonicalKey, alias } = req.body;
     if (!canonicalKey || !alias) {
@@ -44,7 +44,7 @@ bibleStudyRouter.post("/aliases", requireAuth, requirePermission("bible_study.cr
     next(err);
   }
 });
-bibleStudyRouter.post("/book-aliases", requireAuth, requirePermission("bible_study.create"), async (req, res, next) => {
+bibleStudyRouter.post("/book-aliases", requireAuth, requireOffice("publicity-coordinator"), async (req, res, next) => {
   try {
     const { bookId, alias } = req.body;
     if (!bookId || !alias) {
@@ -58,13 +58,13 @@ bibleStudyRouter.post("/book-aliases", requireAuth, requirePermission("bible_stu
 });
 
 
-bibleStudyRouter.post("/upload-outline", requireAuth, requirePermission("bible_study.create"), handleUpload, uploadOutline);
+bibleStudyRouter.post("/upload-outline", requireAuth, requireOffice("publicity-coordinator"), handleUpload, uploadOutline);
 
-bibleStudyRouter.post("/series", requireAuth, requirePermission("bible_study.create"), createSeries);
+bibleStudyRouter.post("/series", requireAuth, requireOffice("publicity-coordinator"), createSeries);
 bibleStudyRouter.get("/series/:id", requireAuth, getSeries);
 
 bibleStudyRouter.get("/", requireAuth, list);
 bibleStudyRouter.get("/:id", requireAuth, getById);
-bibleStudyRouter.post("/", requireAuth, requirePermission("bible_study.create"), create);
-bibleStudyRouter.put("/:id", requireAuth, requirePermission("bible_study.create"), update);
-bibleStudyRouter.patch("/:id/publish", requireAuth, requirePermission("bible_study.publish"), publish);
+bibleStudyRouter.post("/", requireAuth, requireOffice("publicity-coordinator"), create);
+bibleStudyRouter.put("/:id", requireAuth, requireOffice("publicity-coordinator"), update);
+bibleStudyRouter.patch("/:id/publish", requireAuth, requireOffice("publicity-coordinator"), publish);

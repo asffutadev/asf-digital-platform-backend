@@ -1,12 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { afterAll, describe, it, expect, vi } from "vitest";
 import request from "supertest";
 import { app } from "../src/app.js";
 import { logResponse } from "./helpers/logResponse.js";
 import { db } from "../src/db/index.js";
 import { userDashboardAccess, userRoles } from "../src/db/schema/index.js";
+import { registerWithOffice, removeOfficesOf } from "./helpers/officeUser.js";
+
+vi.setConfig({ testTimeout: 300_000 });
 
 const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL || "test2@example.com";
 const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "AdminTest2026x";
+
+const officeUserIds: string[] = [];
+afterAll(async () => { await removeOfficesOf(officeUserIds); }, 120_000);
 
 async function registerAndLogin(emailPrefix: string, name: string) {
   const email = `vitest-${emailPrefix}-${Date.now()}@example.com`;
@@ -31,7 +37,8 @@ describe("RBAC", () => {
   let adminCookie: string;
   let adminId: string;
   let presidentCookie: string;
-  let publicityCookie: string;
+  let publicityRoleCookie: string;
+  let publicityOfficeCookie: string;
 
   it("setup: register plain member", async () => {
     const { cookie } = await registerAndLogin("member", "Vitest Member");
@@ -58,12 +65,18 @@ describe("RBAC", () => {
     presidentCookie = cookie;
   });
 
-  it("setup: register + promote a Publicity Coordinator", async () => {
-    const { cookie, userId } = await registerAndLogin("publicity", "Vitest Publicity");
+  it("setup: a member with ONLY the old Publicity Coordinator role", async () => {
+    const { cookie, userId } = await registerAndLogin("publicity-role", "Vitest Publicity Role");
     const res = await assignRole(adminCookie, userId, "Publicity Coordinator");
     logResponse("RBAC", "assign role -> Publicity Coordinator", res.status, res.body);
     expect(res.status).toBe(200);
-    publicityCookie = cookie;
+    publicityRoleCookie = cookie;
+  });
+
+  it("setup: a member holding the Publicity Coordinator OFFICE", async () => {
+    const publicity = await registerWithOffice("rbac-publicity", "publicity-coordinator");
+    officeUserIds.push(publicity.id);
+    publicityOfficeCookie = publicity.cookie;
   });
 
   it("Member is blocked from GET /api/fs/admissions/admin", async () => {
@@ -72,10 +85,11 @@ describe("RBAC", () => {
     expect(res.status).toBe(403);
   });
 
-  it("Admin is allowed GET /api/fs/admissions/admin", async () => {
+  it("The Technical Administrator has NO access to FS (only the Vice President office does)", async () => {
     const res = await request(app).get("/api/fs/admissions/admin").set("Cookie", adminCookie);
-    logResponse("RBAC", "Admin -> GET /api/fs/admissions/admin", res.status, res.body);
-    expect(res.status).toBe(200);
+    logResponse("RBAC", "Admin -> GET /api/fs/admissions/admin (should be blocked)", res.status, res.body);
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("OFFICE_REQUIRED");
   });
 
   it("President can VIEW events but is BLOCKED from creating one", async () => {
@@ -90,17 +104,28 @@ describe("RBAC", () => {
     expect(createRes.status).toBe(403);
   });
 
-  it("Publicity Coordinator CAN create and publish an announcement", async () => {
-    const createRes = await request(app).post("/api/announcements").set("Cookie", publicityCookie).send({
-      title: "Vitest Publicity Test", message: "Testing publicity role", priority: "Normal",
+  it("The old Publicity Coordinator ROLE alone no longer grants access to anything", async () => {
+    const create = await request(app).post("/api/announcements").set("Cookie", publicityRoleCookie).send({
+      title: "Role Only Attempt", message: "Should be blocked", priority: "Normal",
     });
-    logResponse("RBAC", "Publicity -> POST /api/announcements", createRes.status, createRes.body);
-    expect(createRes.status).toBe(201);
+    logResponse("RBAC", "Publicity ROLE only -> POST /api/announcements (should be blocked)", create.status, create.body);
+    expect(create.status).toBe(403);
+    expect(create.body.error.code).toBe("OFFICE_REQUIRED");
+
+    const draft = await request(app).get("/api/content/website/draft").set("Cookie", publicityRoleCookie);
+    expect(draft.status).toBe(403);
+    expect(draft.body.error.code).toBe("OFFICE_REQUIRED");
   });
 
-  it("Publicity Coordinator CAN access website draft", async () => {
-    const res = await request(app).get("/api/content/website/draft").set("Cookie", publicityCookie);
-    logResponse("RBAC", "Publicity -> GET /api/content/website/draft", res.status, res.body);
+  it("The Publicity Coordinator OFFICE holder CAN create an announcement and open the website draft", async () => {
+    const createRes = await request(app).post("/api/announcements").set("Cookie", publicityOfficeCookie).send({
+      title: "Vitest Publicity Test", message: "Testing the publicity office", priority: "Normal",
+    });
+    logResponse("RBAC", "Publicity OFFICE -> POST /api/announcements", createRes.status, createRes.body);
+    expect(createRes.status).toBe(201);
+
+    const res = await request(app).get("/api/content/website/draft").set("Cookie", publicityOfficeCookie);
+    logResponse("RBAC", "Publicity OFFICE -> GET /api/content/website/draft", res.status, res.body);
     expect(res.status).toBe(200);
   });
 

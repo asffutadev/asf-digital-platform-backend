@@ -1,10 +1,12 @@
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll, vi } from "vitest";
 import request from "supertest";
 import { app } from "../src/app.js";
 import { logResponse } from "./helpers/logResponse.js";
+import { registerWithOffice, removeOfficesOf } from "./helpers/officeUser.js";
 
-const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL || "test2@example.com";
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "AdminTest2026x";
+vi.setConfig({ testTimeout: 300_000 });
+
+const officeUserIds: string[] = [];
 
 // The GET responses contain extra fields (id, configId, timestamps) and nulls that the
 // save endpoint rejects or ignores, so reduce a snapshot to what saveDraft accepts.
@@ -22,61 +24,57 @@ function toSaveShape(snapshot: any) {
 }
 
 describe("CMS (Website Content)", () => {
-  let adminCookie: string;
+  let adminCookie: string; // the Publicity Coordinator
   let memberCookie: string;
   let publishedSnapshot: any;
   let draftSnapshot: any;
 
-  it("setup: login as admin, snapshot the live site, register a plain member", async () => {
-    const login = await request(app).post("/api/auth/login").send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
-    logResponse("CMS", "setup login (admin)", login.status, login.body);
-    expect(login.status).toBe(200);
-    adminCookie = login.headers["set-cookie"]![0].split(";")[0];
+  it("setup: a Publicity Coordinator, snapshot the live site, register a plain member", async () => {
+    const publicity = await registerWithOffice("cms-publicity", "publicity-coordinator");
+    officeUserIds.push(publicity.id);
+    adminCookie = publicity.cookie;
 
     // Snapshot BEFORE any test touches the site, so afterAll can put it back.
     const pub = await request(app).get("/api/content/website");
     expect(pub.status).toBe(200);
     publishedSnapshot = pub.body.data;
     const drf = await request(app).get("/api/content/website/draft").set("Cookie", adminCookie);
+    logResponse("CMS", "setup: snapshot draft (as Publicity)", drf.status, drf.body);
     expect(drf.status).toBe(200);
     draftSnapshot = drf.body.data;
 
-    const reg = await request(app).post("/api/auth/register").send({
-      email: `vitest-cms-${Date.now()}@example.com`,
-      password: "vitestpass123",
-      name: "Vitest CMS Member",
-      departmentId: "other",
-      gender: "Male",
-      academicLevel: "200 Level",
-    });
-    logResponse("CMS", "setup: register member", reg.status, reg.body);
-    expect(reg.status).toBe(201);
-    memberCookie = reg.headers["set-cookie"]![0].split(";")[0];
+    const member = await registerWithOffice("cms-member");
+    memberCookie = member.cookie;
   });
 
+  // One hook: restore the site first, and always remove the office afterwards.
   afterAll(async () => {
-    if (!publishedSnapshot || !draftSnapshot) return;
+    try {
+      if (!publishedSnapshot || !draftSnapshot) return;
 
-    const saveLive = await request(app)
-      .post("/api/content/website/draft")
-      .set("Cookie", adminCookie)
-      .send(toSaveShape(publishedSnapshot));
-    if (saveLive.status !== 200) throw new Error(`CMS restore failed: saving the live copy as draft returned ${saveLive.status}`);
+      const saveLive = await request(app)
+        .post("/api/content/website/draft")
+        .set("Cookie", adminCookie)
+        .send(toSaveShape(publishedSnapshot));
+      if (saveLive.status !== 200) throw new Error(`CMS restore failed: saving the live copy as draft returned ${saveLive.status}`);
 
-    const republish = await request(app).post("/api/content/website/publish").set("Cookie", adminCookie);
-    if (republish.status !== 200) throw new Error(`CMS restore failed: republishing returned ${republish.status}`);
+      const republish = await request(app).post("/api/content/website/publish").set("Cookie", adminCookie);
+      if (republish.status !== 200) throw new Error(`CMS restore failed: republishing returned ${republish.status}`);
 
-    const saveDraft = await request(app)
-      .post("/api/content/website/draft")
-      .set("Cookie", adminCookie)
-      .send(toSaveShape(draftSnapshot));
-    if (saveDraft.status !== 200) throw new Error(`CMS restore failed: restoring the working draft returned ${saveDraft.status}`);
+      const saveDraft = await request(app)
+        .post("/api/content/website/draft")
+        .set("Cookie", adminCookie)
+        .send(toSaveShape(draftSnapshot));
+      if (saveDraft.status !== 200) throw new Error(`CMS restore failed: restoring the working draft returned ${saveDraft.status}`);
 
-    const live = await request(app).get("/api/content/website");
-    if (live.body.data.copy?.hero?.headline !== publishedSnapshot.copy?.hero?.headline) {
-      throw new Error("CMS restore failed: the live headline does not match the original snapshot");
+      const live = await request(app).get("/api/content/website");
+      if (live.body.data.copy?.hero?.headline !== publishedSnapshot.copy?.hero?.headline) {
+        throw new Error("CMS restore failed: the live headline does not match the original snapshot");
+      }
+    } finally {
+      await removeOfficesOf(officeUserIds);
     }
-  }, 60000);
+  }, 120000);
 
   it("GET /api/content/website is public, no auth required", async () => {
     const res = await request(app).get("/api/content/website");

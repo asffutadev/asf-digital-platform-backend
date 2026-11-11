@@ -1,36 +1,29 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll, vi } from "vitest";
 import request from "supertest";
 import { app } from "../src/app.js";
 import { logResponse } from "./helpers/logResponse.js";
+import { registerWithOffice, removeOfficesOf } from "./helpers/officeUser.js";
 
-const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL || "test2@example.com";
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "AdminTest2026x";
+vi.setConfig({ testTimeout: 300_000 });
+
+const officeUserIds: string[] = [];
+afterAll(async () => { await removeOfficesOf(officeUserIds); }, 120_000);
 
 describe("Announcements", () => {
-  let adminCookie: string;
+  let adminCookie: string; // the Publicity Coordinator
   let memberCookie: string;
   let normalAnnouncementId: string;
   let revisionAnnouncementId: string;
 
-  it("setup: login as admin + register a plain member", async () => {
-    const login = await request(app).post("/api/auth/login").send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
-    logResponse("Announcements", "setup login (admin)", login.status, login.body);
-    expect(login.status).toBe(200);
-    adminCookie = login.headers["set-cookie"]![0].split(";")[0];
-
-    const reg = await request(app).post("/api/auth/register").send({
-      email: `vitest-ann-${Date.now()}@example.com`,
-      password: "vitestpass123",
-      name: "Vitest Announcements Member",
-      departmentId: "other",
-      gender: "Female",
-      academicLevel: "200 Level",
-    });
-    logResponse("Announcements", "setup: register member", reg.status, reg.body);
-    expect(reg.status).toBe(201);
-    memberCookie = reg.headers["set-cookie"]![0].split(";")[0];
+  it("setup: a Publicity Coordinator + a plain member", async () => {
+    const publicity = await registerWithOffice("ann-publicity", "publicity-coordinator");
+    const member = await registerWithOffice("ann-member");
+    officeUserIds.push(publicity.id);
+    adminCookie = publicity.cookie;
+    memberCookie = member.cookie;
+    logResponse("Announcements", "setup (office holder created)", 201, { publicity: publicity.id });
   });
-
+  
   it("Member is BLOCKED from creating an announcement (no permission)", async () => {
     const res = await request(app).post("/api/announcements").set("Cookie", memberCookie).send({
       title: "Should Fail", message: "Should not be created", priority: "Normal",

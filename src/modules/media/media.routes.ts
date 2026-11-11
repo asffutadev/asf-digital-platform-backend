@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/requireAuth.js";
-import { requirePermission } from "../../middleware/requirePermission.js";
+import { requireOffice } from "../../middleware/requireOffice.js";
 import {
   assignAsset,
   getPlacement,
@@ -16,7 +16,7 @@ export const mediaRouter = Router();
 mediaRouter.get("/placements", listPlacements);
 mediaRouter.get("/placements/:key", getPlacement);
 
-mediaRouter.use(requireAuth, requirePermission("media.upload"));
+mediaRouter.use(requireAuth, requireOffice("publicity-coordinator"));
 mediaRouter.get("/assets", listAssets);
 mediaRouter.post("/assets", handleUpload, uploadAsset);
 mediaRouter.delete("/assets/:id", removeAsset);

@@ -3,15 +3,11 @@ import { createAnnouncementSchema, editAnnouncementSchema, revisionRequestSchema
 import * as service from "./announcements.service.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import { AppError } from "../../errors/appError.js";
-import { permissions } from "../../config/permissions.config.js";
-
-function hasPermission(req: Request, key: keyof typeof permissions): boolean {
-  return req.user!.roles.some((role) => (permissions[key] as readonly string[]).includes(role));
-}
+import { hasOffice } from "../authorization/authorization.repository.js";
 
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
-    const canSeeAll = hasPermission(req, "announcements.publish");
+        const canSeeAll = await hasOffice(req.user!.id, "publicity-coordinator");
     const data = await service.getAnnouncements(canSeeAll);
     return sendSuccess(res, data);
   } catch (err) {

@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/requireAuth.js";
-import { requirePermission } from "../../middleware/requirePermission.js";
+import { requireOffice } from "../../middleware/requireOffice.js";
 import { list, featured, create, update, cancel } from "./events.controller.js";
 
 export const eventsRouter = Router();
 
+const publicityAccess = [requireAuth, requireOffice("publicity-coordinator")];
+
 eventsRouter.get("/", requireAuth, list);
 eventsRouter.get("/featured", requireAuth, featured);
-eventsRouter.post("/", requireAuth, requirePermission("events.create_edit"), create);
-eventsRouter.put("/:id", requireAuth, requirePermission("events.create_edit"), update);
-eventsRouter.patch("/:id/cancel", requireAuth, requirePermission("events.create_edit"), cancel);
+eventsRouter.post("/", ...publicityAccess, create);
+eventsRouter.put("/:id", ...publicityAccess, update);
+eventsRouter.patch("/:id/cancel", ...publicityAccess, cancel);

@@ -5,11 +5,10 @@ import { createBibleStudySchema, updateBibleStudySchema, createSeriesSchema } fr
 import * as service from "./bibleStudy.service.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import { AppError } from "../../errors/appError.js";
-import { permissions } from "../../config/permissions.config.js";
 import { extractAllStudies } from "../../utils/pdfOutlineExtractor.js";
 import * as aliasRepo from "./outlineAliases.repository.js";
 import * as bookAliasRepo from "./bibleBookAliases.repository.js";
-
+import { hasOffice } from "../authorization/authorization.repository.js";
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -22,10 +21,6 @@ const upload = multer({
 });
 
 export const uploadMiddleware = upload.single("file");
-
-function hasPermission(req: Request, key: keyof typeof permissions): boolean {
-  return req.user!.roles.some((role) => (permissions[key] as readonly string[]).includes(role));
-}
 
 export async function current(req: Request, res: Response, next: NextFunction) {
   try {
@@ -125,7 +120,7 @@ export async function uploadOutline(req: Request, res: Response, next: NextFunct
 
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
-    const canSeeUnpublished = hasPermission(req, "bible_study.create");
+    const canSeeUnpublished = await hasOffice(req.user!.id, "publicity-coordinator");
     const studies = await service.getStudies(canSeeUnpublished);
     res.set("Cache-Control", canSeeUnpublished ? "private, no-store" : "public, max-age=300");
     return sendSuccess(res, studies);
@@ -136,7 +131,7 @@ export async function list(req: Request, res: Response, next: NextFunction) {
 
 export async function getById(req: Request, res: Response, next: NextFunction) {
   try {
-    const canSeeUnpublished = hasPermission(req, "bible_study.create");
+    const canSeeUnpublished = await hasOffice(req.user!.id, "publicity-coordinator");
     const study = await service.getStudyById(req.params.id as string, canSeeUnpublished);
     res.set("Cache-Control", study.publicationStatus === "published" ? "public, max-age=3600" : "private, no-store");
     return sendSuccess(res, study);
@@ -162,7 +157,7 @@ export async function createSeries(req: Request, res: Response, next: NextFuncti
 
 export async function getSeries(req: Request, res: Response, next: NextFunction) {
   try {
-    const canSeeUnpublished = hasPermission(req, "bible_study.create");
+    const canSeeUnpublished = await hasOffice(req.user!.id, "publicity-coordinator");
     const result = await service.getSeriesById(req.params.id as string, canSeeUnpublished);
     return sendSuccess(res, result);
   } catch (err) {

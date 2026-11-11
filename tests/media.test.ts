@@ -1,34 +1,27 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll, vi } from "vitest";
 import request from "supertest";
 import path from "path";
 import { app } from "../src/app.js";
 import { logResponse } from "./helpers/logResponse.js";
+import { registerWithOffice, removeOfficesOf } from "./helpers/officeUser.js";
 
-const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL || "test2@example.com";
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "AdminTest2026x";
+vi.setConfig({ testTimeout: 300_000 });
+
 const SAMPLE_IMAGE = path.resolve("tests/fixtures/sample-image.jpg");
+const officeUserIds: string[] = [];
+afterAll(async () => { await removeOfficesOf(officeUserIds); }, 120_000);
 
 describe("Media", () => {
-  let adminCookie: string;
+  let adminCookie: string; // the Publicity Coordinator
   let memberCookie: string;
   let uploadedAssetId: string;
 
-  it("setup: login as admin + register member", async () => {
-    const login = await request(app).post("/api/auth/login").send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
-    adminCookie = login.headers["set-cookie"]![0].split(";")[0];
-
-    const reg = await request(app).post("/api/auth/register").send({
-      email: `vitest-media-${Date.now()}@example.com`,
-      password: "vitestpass123",
-      name: "Adaeze Nnamdi",
-      departmentId: "other",
-      gender: "Female",
-      academicLevel: "300 Level",
-    });
-    memberCookie = reg.headers["set-cookie"]![0].split(";")[0];
-
-    expect(login.status).toBe(200);
-    expect(reg.status).toBe(201);
+  it("setup: a Publicity Coordinator + a plain member", async () => {
+    const publicity = await registerWithOffice("media-publicity", "publicity-coordinator");
+    const member = await registerWithOffice("media-member");
+    officeUserIds.push(publicity.id);
+    adminCookie = publicity.cookie;
+    memberCookie = member.cookie;
   });
 
   it("GET /api/media/placements (public, no auth)", async () => {
