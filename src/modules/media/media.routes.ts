@@ -5,9 +5,11 @@ import {
   assignAsset,
   getPlacement,
   handleUpload,
+  getAsset,
   listAssets,
   listPlacements,
   removeAsset,
+  updateAsset,
   uploadAsset,
 } from "./media.controller.js";
 
@@ -19,5 +21,7 @@ mediaRouter.get("/placements/:key", getPlacement);
 mediaRouter.use(requireAuth, requireOffice("publicity-coordinator"));
 mediaRouter.get("/assets", listAssets);
 mediaRouter.post("/assets", handleUpload, uploadAsset);
+mediaRouter.get("/assets/:id", getAsset);
+mediaRouter.patch("/assets/:id", updateAsset);
 mediaRouter.delete("/assets/:id", removeAsset);
 mediaRouter.put("/placements/:key", assignAsset);

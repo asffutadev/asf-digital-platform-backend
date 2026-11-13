@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, integer, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, text, integer, timestamp, index, jsonb } from "drizzle-orm/pg-core";
 import { users } from "./users.js";
 
 export const mediaAssets = pgTable(
@@ -16,9 +16,15 @@ export const mediaAssets = pgTable(
     width: integer("width"),
     height: integer("height"),
     altText: text("alt_text"),
+    category: varchar("category", { length: 50 }).notNull().default("General"),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
     createdBy: uuid("created_by").notNull().references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("idx_media_assets_created_at").on(table.createdAt)]
+  (table) => [
+    index("idx_media_assets_created_at").on(table.createdAt),
+    index("idx_media_assets_category").on(table.category),
+    index("idx_media_assets_resource_type").on(table.resourceType),
+  ]
 );

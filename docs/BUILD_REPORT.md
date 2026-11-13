@@ -473,3 +473,74 @@ Vitest emitted the existing non-fatal Vite CommonJS/ESM configuration warning.
 ### Task 2 commit
 
 Task 2 is ready for local commit after review. No push was performed.
+
+## Task 3 — Media — 2026-11-13
+
+### Files created and modified
+
+- `src/db/schema/mediaAssets.ts` — adds category and JSONB tags with defaults and supporting indexes.
+- `src/db/migrations/0034_orange_black_tom.sql` — additive/idempotent Media migration for category, tags, and indexes.
+- `src/db/migrations/meta/0034_snapshot.json` and `src/db/migrations/meta/_journal.json` — record the generated Drizzle migration.
+- `src/modules/media/media.validation.ts` and `src/modules/media/media.types.ts` — validate upload metadata, list filters, pagination, UUIDs, and updates.
+- `src/modules/media/media.controller.ts` — verifies file magic bytes, applies image/PDF/video size limits, parses metadata, and adds asset detail/update handlers.
+- `src/modules/media/media.service.ts` — standardizes upload/list/detail/update responses and protects referenced assets from deletion.
+- `src/modules/media/media.repository.ts` — adds SQL-side pagination/filtering and reference checks across placements, Events, Announcements, Website data, and Bible Study JSON fields.
+- `src/modules/media/media.routes.ts` — adds `GET /assets/:id` and `PATCH /assets/:id`.
+- `src/modules/media/providers/mediaProvider.interface.ts` and `src/modules/media/providers/cloudinaryMediaProvider.ts` — pass the verified resource type through Cloudinary upload and deletion.
+- `src/errors/appError.ts` — allows structured conflict details for `MEDIA_ASSET_IN_USE`.
+
+### Database change
+
+Generated with:
+
+```text
+npx drizzle-kit generate
+```
+
+The generated SQL was reviewed and made additive/idempotent before application. It was applied with:
+
+```text
+npm run db:migrate
+[✓] migrations applied successfully!
+```
+
+Live PostgreSQL metadata verification confirmed:
+
+- `category` is `varchar`, non-null, and defaults to `General`.
+- `tags` is `jsonb`, non-null, and defaults to `[]`.
+- `idx_media_assets_category` exists.
+- `idx_media_assets_resource_type` exists.
+
+### Endpoint and validation behavior
+
+- Uploads accept verified images, videos, and PDFs only; declared MIME types are not trusted.
+- Image uploads are limited to 10 MB, PDFs to 20 MB, and videos to 95 MB, below the current Cloudinary Free-plan 100 MB video limit.
+- `GET /api/media/assets` supports pagination, search, category, tag, and resource-type filters and returns total/page/limit metadata.
+- `GET /api/media/assets/:id` and `PATCH /api/media/assets/:id` provide detail and metadata editing.
+- Upload, list, detail, and update responses use the same normalized asset fields.
+- Deletion returns `MEDIA_ASSET_IN_USE` with reference-source details when an asset is used by any supported placement or content record.
+- Cloudinary operations now use the stored `image`, `video`, or `raw` resource type.
+
+### Real TypeScript and test output
+
+TypeScript:
+
+```text
+npx tsc --noEmit
+Process exited with code 0
+No TypeScript diagnostics were emitted.
+```
+
+Media integration suite:
+
+```text
+npx vitest run tests/media.test.ts --reporter verbose
+Test Files  1 passed (1)
+Tests       7 passed (7)
+```
+
+The existing non-fatal Vite CommonJS/ESM configuration warning was emitted. The suite exercised authenticated setup, public placement reads, protected asset operations, assignment, and deletion behavior against the configured shared database.
+
+### Task 3 commit
+
+Task 3 is ready for local commit after review. No push was performed.

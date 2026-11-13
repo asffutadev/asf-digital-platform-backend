@@ -1,7 +1,7 @@
 export interface MediaUploadInput {
   buffer: Buffer;
   filename: string;
-  mimetype: string;
+  resourceType: "image" | "video" | "raw";
 }
 
 export interface StoredMedia {
@@ -17,5 +17,5 @@ export interface StoredMedia {
 
 export interface MediaProvider {
   upload(input: MediaUploadInput): Promise<StoredMedia>;
-  delete(publicId: string): Promise<void>;
+  delete(publicId: string, resourceType: string): Promise<void>;
 }

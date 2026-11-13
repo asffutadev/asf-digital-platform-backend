@@ -24,7 +24,7 @@ export const cloudinaryMediaProvider: MediaProvider = {
 
     return new Promise((resolve, reject) => {
       const stream = client.uploader.upload_stream(
-        { folder: "asf/media", resource_type: "image" },
+        { folder: "asf/media", resource_type: input.resourceType },
         (error, result) => {
           if (error || !result) {
             reject(AppError.internal("Media upload failed", "MEDIA_UPLOAD_FAILED"));
@@ -48,9 +48,9 @@ export const cloudinaryMediaProvider: MediaProvider = {
     });
   },
 
-  async delete(publicId: string) {
+  async delete(publicId: string, resourceType: string) {
     const client = configureCloudinary();
-    const result = await client.uploader.destroy(publicId, { resource_type: "image" });
+    const result = await client.uploader.destroy(publicId, { resource_type: resourceType });
     if (result.result !== "ok" && result.result !== "not found") {
       throw AppError.internal("Media deletion failed", "MEDIA_DELETE_FAILED");
     }

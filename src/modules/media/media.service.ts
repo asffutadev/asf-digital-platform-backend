@@ -3,47 +3,60 @@ import type { mediaAssets } from "../../db/schema/mediaAssets.js";
 import type { StoredMedia } from "./providers/mediaProvider.interface.js";
 import { mediaProvider } from "./providers/index.js";
 import * as repository from "./media.repository.js";
+import type { ListMediaQuery, UpdateMediaInput } from "./media.types.js";
 
 type MediaAsset = typeof mediaAssets.$inferSelect;
 
-function toAssetResponse(asset: MediaAsset) {
+export function toAssetResponse(asset: MediaAsset) {
   return {
     id: asset.id,
+    provider: asset.provider,
+    publicId: asset.publicId,
     url: asset.secureUrl,
+    resourceType: asset.resourceType,
     format: asset.format,
+    originalFilename: asset.originalFilename,
     mimeType: asset.mimeType,
     bytes: asset.bytes,
     width: asset.width,
     height: asset.height,
     altText: asset.altText,
+    category: asset.category,
+    tags: asset.tags,
+    createdBy: asset.createdBy,
+    createdAt: asset.createdAt,
+    updatedAt: asset.updatedAt,
   };
 }
 
 export async function uploadAsset(
-  file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+  file: { buffer: Buffer; originalname: string; size: number },
   createdBy: string,
-  altText?: string
+  metadata: { altText?: string; category: string; tags: string[]; resourceType: "image" | "video" | "raw"; mimeType: string }
 ) {
   const stored: StoredMedia = await mediaProvider.upload({
     buffer: file.buffer,
     filename: file.originalname,
-    mimetype: file.mimetype,
+    resourceType: metadata.resourceType,
   });
 
-  return repository.createAsset({
+  const asset = await repository.createAsset({
     provider: stored.provider,
     publicId: stored.publicId,
     secureUrl: stored.secureUrl,
     resourceType: stored.resourceType,
     format: stored.format,
     originalFilename: file.originalname,
-    mimeType: file.mimetype,
+    mimeType: metadata.mimeType,
     bytes: stored.bytes || file.size,
     width: stored.width,
     height: stored.height,
-    altText,
+    altText: metadata.altText,
+    category: metadata.category,
+    tags: metadata.tags,
     createdBy,
   });
+  return asset ? toAssetResponse(asset) : null;
 }
 
 export async function getPlacement(key: string) {
@@ -67,23 +80,38 @@ export async function assignAsset(key: string, assetId: string, assignedBy: stri
   const asset = await repository.findAssetById(assetId);
   if (!asset) throw AppError.notFound("Media asset not found", "MEDIA_ASSET_NOT_FOUND");
 
-  if (altText !== undefined) await repository.updateAssetAltText(assetId, altText);
+  if (altText !== undefined) await repository.updateAsset(assetId, { altText });
   await repository.assignAsset(key, assetId, assignedBy);
   return getPlacement(key);
 }
 
-export async function listAssets() {
-  const assets = await repository.listAssets();
-  return assets.map(toAssetResponse);
+export async function listAssets(filters: ListMediaQuery) {
+  const result = await repository.listAssets(filters);
+  return { data: result.rows.map(toAssetResponse), total: result.total };
+}
+
+export async function getAsset(id: string) {
+  const asset = await repository.findAssetById(id);
+  if (!asset) throw AppError.notFound("Media asset not found", "MEDIA_ASSET_NOT_FOUND");
+  return toAssetResponse(asset);
+}
+
+export async function updateAsset(id: string, input: UpdateMediaInput) {
+  const asset = await repository.findAssetById(id);
+  if (!asset) throw AppError.notFound("Media asset not found", "MEDIA_ASSET_NOT_FOUND");
+  const updated = await repository.updateAsset(id, input);
+  return updated ? toAssetResponse(updated) : null;
 }
 
 export async function deleteAsset(id: string) {
   const asset = await repository.findAssetById(id);
   if (!asset) throw AppError.notFound("Media asset not found", "MEDIA_ASSET_NOT_FOUND");
 
-  const placement = await repository.findPlacementUsingAsset(id);
-  if (placement) throw AppError.conflict("Media asset is assigned to a placement", "MEDIA_ASSET_IN_USE");
+  const references = await repository.findAssetReferences(id);
+  if (references.length > 0) {
+    throw AppError.conflict("Media asset is still referenced", "MEDIA_ASSET_IN_USE", { references });
+  }
 
-  await mediaProvider.delete(asset.publicId);
+  await mediaProvider.delete(asset.publicId, asset.resourceType);
   await repository.deleteAsset(id);
 }
