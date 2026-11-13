@@ -7,7 +7,7 @@ import * as authRepository from "./auth.repository.js";
 import type { RegisterInput } from "./auth.validation.js";
 import { db } from "../../db/index.js";
 import { hashPassword, verifyPassword } from "../../utils/password.js";
-
+import { recordAudit } from "../../utils/auditLog.js";
 
 export async function verifyMagicLink(
   rawToken: string,
@@ -154,4 +154,24 @@ export async function loginWithPassword(email: string, password: string, ipAddre
   const roles = await authRepository.getUserRolesByUserId(user.id);
 
   return { user, roles, rawSessionToken, sessionExpiresAt };
+}
+
+export async function changePassword(userId: string, sessionId: string, currentPassword: string, newPassword: string) {
+  const user = await authRepository.findUserById(db, userId);
+  if (!user || !user.passwordHash) {
+    throw AppError.badRequest("This account has no password set", "NO_PASSWORD_SET");
+  }
+  if (!(await verifyPassword(currentPassword, user.passwordHash))) {
+    throw AppError.badRequest("The current password is incorrect", "INVALID_CURRENT_PASSWORD");
+  }
+  if (currentPassword === newPassword) {
+    throw AppError.badRequest("The new password must be different from the current one", "PASSWORD_UNCHANGED");
+  }
+  const passwordHash = await hashPassword(newPassword);
+  await db.transaction(async (tx) => {
+    await authRepository.setPasswordAndClearFlag(tx, userId, passwordHash);
+    await authRepository.revokeOtherSessions(tx, userId, sessionId);
+    await recordAudit({ actorId: userId, action: "auth.password_changed", targetType: "user", targetId: userId, metadata: null }, tx);
+  });
+  return { mustChangePassword: false };
 }

@@ -5,6 +5,13 @@ import { hashToken } from "../utils/token.js";
 import * as authRepository from "../modules/auth/auth.repository.js";
 import { db } from "../db/index.js";
 
+// While a temporary password is pending, these are the only routes a session may use.
+const ALLOWED_WHILE_PASSWORD_CHANGE_PENDING = new Set([
+  "/api/auth/me",
+  "/api/auth/logout",
+  "/api/auth/change-password",
+]);
+
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const rawSessionToken = req.cookies?.asf_session;
@@ -50,9 +57,20 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       gender: user.gender,
       academicLevel: user.academicLevel,
       accountStatus: user.accountStatus,
+      mustChangePassword: user.mustChangePassword,
       roles,
     };
     req.sessionId = session.id;
+
+    if (user.mustChangePassword) {
+      const fullPath = (req.baseUrl + req.path).replace(/\/+$/, "");
+      if (!ALLOWED_WHILE_PASSWORD_CHANGE_PENDING.has(fullPath)) {
+        throw AppError.forbidden(
+          "You must change your temporary password before continuing",
+          "PASSWORD_CHANGE_REQUIRED"
+        );
+      }
+    }
 
     next();
   } catch (err) {

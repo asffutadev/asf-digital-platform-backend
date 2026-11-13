@@ -7,5 +7,6 @@ export interface AuthenticatedUser {
   gender: string | null;
   academicLevel: string;
   accountStatus: string;
+  mustChangePassword: boolean;
   roles: string[];
 }

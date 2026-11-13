@@ -193,3 +193,17 @@ export async function departmentExists(departmentId: string) {
     .limit(1);
   return rows.length > 0;
 }
+
+export async function setPasswordAndClearFlag(tx: any, userId: string, passwordHash: string) {
+  await tx
+    .update(users)
+    .set({ passwordHash, mustChangePassword: false, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+}
+
+export async function revokeOtherSessions(tx: any, userId: string, keepSessionId: string) {
+  await tx
+    .update(userSessions)
+    .set({ isRevoked: true })
+    .where(and(eq(userSessions.userId, userId), ne(userSessions.id, keepSessionId)));
+}

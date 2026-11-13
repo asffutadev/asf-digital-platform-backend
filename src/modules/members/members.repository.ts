@@ -1,8 +1,7 @@
 import { db } from "../../db/index.js";
-import { users, userAcademicHistory, academicSessions, userSessions, departments } from "../../db/schema/index.js";
+import { users, userAcademicHistory, academicSessions, userSessions, departments, userRoles, roles } from "../../db/schema/index.js";
 import { eq, and, ne, ilike, or, count, inArray } from "drizzle-orm";
 import type { Transaction } from "../../db/index.js";
-import { userRoles, roles } from "../../db/schema/index.js";
 import type { ListMembersQuery } from "./members.validation.js";
 
 export async function findUserById(userId: string) {
@@ -12,7 +11,6 @@ export async function findUserById(userId: string) {
 export async function getActiveSession() {
   return db.query.academicSessions.findFirst({ where: eq(academicSessions.isActive, true) });
 }
-
 
 export async function applyOverride(
   tx: Transaction,
@@ -55,8 +53,6 @@ export async function findUserByIdTx(tx: Transaction, userId: string) {
   return tx.query.users.findFirst({ where: eq(users.id, userId) });
 }
 
-
-
 export async function listMembers(query: ListMembersQuery) {
   const offset = (query.page - 1) * query.limit;
 
@@ -74,9 +70,10 @@ export async function listMembers(query: ListMembersQuery) {
       )!
     );
   }
-  if (query.academicLevel) {
-    conditions.push(eq(users.academicLevel, query.academicLevel));
-  }
+  if (query.academicLevel) conditions.push(eq(users.academicLevel, query.academicLevel));
+  if (query.subgroup) conditions.push(eq(users.subgroup, query.subgroup));
+  if (query.departmentId) conditions.push(eq(users.departmentId, query.departmentId));
+  if (query.membershipStatus) conditions.push(eq(users.membershipStatus, query.membershipStatus));
 
   const [rows, totalResult] = await Promise.all([
     db
@@ -92,7 +89,6 @@ export async function listMembers(query: ListMembersQuery) {
   return { rows, total: totalResult[0].count };
 }
 
-
 export async function roleExists(roleId: string) {
   return db.query.roles.findFirst({ where: eq(roles.id, roleId) });
 }
@@ -103,6 +99,11 @@ export async function hasRole(userId: string, roleId: string) {
   });
 }
 
+export async function getRoleIds(userId: string) {
+  const rows = await db.select({ roleId: userRoles.roleId }).from(userRoles).where(eq(userRoles.userId, userId));
+  return rows.map((row) => row.roleId);
+}
+
 export async function assignRole(userId: string, roleId: string, assignedBy: string, executor: typeof db | Transaction = db) {
   await executor.insert(userRoles).values({ userId, roleId, assignedBy }).onConflictDoNothing();
 }
@@ -111,8 +112,8 @@ export async function removeRole(userId: string, roleId: string, executor: typeo
   await executor.delete(userRoles).where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
 }
 
-export async function updateAccountStatus(userId: string, accountStatus: string) {
-  const [updated] = await db
+export async function updateAccountStatus(userId: string, accountStatus: string, executor: typeof db | Transaction = db) {
+  const [updated] = await executor
     .update(users)
     .set({ accountStatus, updatedAt: new Date() })
     .where(eq(users.id, userId))
@@ -120,12 +121,15 @@ export async function updateAccountStatus(userId: string, accountStatus: string)
   return updated;
 }
 
-export async function revokeAllUserSessions(userId: string) {
-  await db.update(userSessions).set({ isRevoked: true }).where(eq(userSessions.userId, userId));
+export async function revokeAllUserSessions(userId: string, executor: typeof db | Transaction = db) {
+  await executor.update(userSessions).set({ isRevoked: true }).where(eq(userSessions.userId, userId));
 }
 
-export async function setPasswordHash(userId: string, passwordHash: string) {
-  await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, userId));
+export async function setTemporaryPassword(userId: string, passwordHash: string, executor: typeof db | Transaction = db) {
+  await executor
+    .update(users)
+    .set({ passwordHash, mustChangePassword: true, updatedAt: new Date() })
+    .where(eq(users.id, userId));
 }
 
 export async function updateSubgroup(userId: string, subgroup: string, executor: typeof db | Transaction = db) {

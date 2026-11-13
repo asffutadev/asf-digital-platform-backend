@@ -11,6 +11,8 @@ import { loginWithPassword } from "./auth.service.js";
 import { magicLinkRequestSchema } from "./auth.validation.js";
 import { requestMagicLink } from "./auth.service.js";
 import { resolveAuthorization } from "../authorization/authorization.resolver.js";
+import { changePasswordSchema } from "./auth.validation.js";
+import { changePassword as changePasswordService } from "./auth.service.js";
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
@@ -140,7 +142,6 @@ export async function requestLogin(req: Request, res: Response, next: NextFuncti
   }
 }
 
-
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = loginSchema.safeParse(req.body);
@@ -172,8 +173,23 @@ export async function login(req: Request, res: Response, next: NextFunction) {
       gender: user.gender,
       academicLevel: user.academicLevel,
       subgroup: user.subgroup,
+      mustChangePassword: user.mustChangePassword,
       roles,
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+export async function changePassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = changePasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw AppError.badRequest("Invalid password data", "VALIDATION_ERROR", parsed.error.flatten().fieldErrors);
+    }
+    const result = await changePasswordService(req.user!.id, req.sessionId!, parsed.data.currentPassword, parsed.data.newPassword);
+    return sendSuccess(res, result, "Password changed successfully");
   } catch (err) {
     next(err);
   }

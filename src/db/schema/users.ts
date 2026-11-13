@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, smallint, uniqueIndex, index, check } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, text, timestamp, smallint,  boolean, uniqueIndex, index, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { departments } from "./departments.js";
 export const users = pgTable(
@@ -17,6 +17,7 @@ export const users = pgTable(
     departmentId: varchar("department_id", { length: 100 }).references(() => departments.id, { onDelete: "restrict" }),
     gender: varchar("gender", { length: 10 }),
     avatarUrl: text("avatar_url"),
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
     passwordHash: text("password_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

@@ -59,7 +59,7 @@ describe("RBAC", () => {
     const res = await assignRole(adminCookie, userId, "President / Executive");
     logResponse("RBAC", "assign role -> President / Executive", res.status, res.body);
     expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("PROTECTED_ROLE_REQUIRES_PRESIDENT");
+    expect(res.body.error.code).toBe("OFFICE_REQUIRED");
     await db.insert(userRoles).values({ userId, roleId: "President / Executive" });
     await db.insert(userDashboardAccess).values({ userId, dashboardId: "president", grantedBy: adminId }).onConflictDoNothing();
     presidentCookie = cookie;
@@ -68,8 +68,10 @@ describe("RBAC", () => {
   it("setup: a member with ONLY the old Publicity Coordinator role", async () => {
     const { cookie, userId } = await registerAndLogin("publicity-role", "Vitest Publicity Role");
     const res = await assignRole(adminCookie, userId, "Publicity Coordinator");
-    logResponse("RBAC", "assign role -> Publicity Coordinator", res.status, res.body);
-    expect(res.status).toBe(200);
+    logResponse("RBAC", "Technical Administrator -> assign role (should be blocked now)", res.status, res.body);
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("OFFICE_REQUIRED");
+    await db.insert(userRoles).values({ userId, roleId: "Publicity Coordinator" });
     publicityRoleCookie = cookie;
   });
 

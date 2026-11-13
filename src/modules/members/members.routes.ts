@@ -1,16 +1,18 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/requireAuth.js";
 import { requirePermission } from "../../middleware/requirePermission.js";
-import { overrideLevel, list,updateRole, updateStatus,getById, resetPassword, updateSubgroup } from "./members.controller.js";
-    
-
+import { requireOffice } from "../../middleware/requireOffice.js";
+import { requireOfficeOrCapability } from "../../middleware/requireOfficeOrCapability.js";
+import { overrideLevel, list, updateRole, updateStatus, getById, resetPassword, updateSubgroup } from "./members.controller.js";
 
 export const membersRouter = Router();
 
-membersRouter.patch("/:id/academic-level", requireAuth, requirePermission("academic.rollover"), overrideLevel);
+const publicityAccess = [requireAuth, requireOffice("publicity-coordinator")];
+
 membersRouter.get("/", requireAuth, requirePermission("members.view_directory"), list);
-membersRouter.patch("/:id/role", requireAuth, requirePermission("members.edit_role"), updateRole);
-membersRouter.patch("/:id/status", requireAuth, requirePermission("members.edit_status"), updateStatus);
 membersRouter.get("/:id", requireAuth, requirePermission("members.view_directory"), getById);
-membersRouter.patch("/:id/reset-password", requireAuth, requirePermission("members.edit_status"), resetPassword);
-membersRouter.patch("/:id/subgroup", requireAuth, requirePermission("members.edit_subgroup"), updateSubgroup);
+membersRouter.patch("/:id/academic-level", ...publicityAccess, overrideLevel);
+membersRouter.patch("/:id/status", ...publicityAccess, updateStatus);
+membersRouter.patch("/:id/subgroup", ...publicityAccess, updateSubgroup);
+membersRouter.patch("/:id/reset-password", requireAuth, requireOfficeOrCapability("publicity-coordinator", "technical_head"), resetPassword);
+membersRouter.patch("/:id/role", requireAuth, requireOffice("president"), updateRole);

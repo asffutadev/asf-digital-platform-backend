@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { app } from "../src/app.js";
+import { registerWithOffice, removeOfficesOf } from "./helpers/officeUser.js";
 
-const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL || "test2@example.com";
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "AdminTest2026x";
+vi.setConfig({ testTimeout: 300_000 });
+
+const officeUserIds: string[] = [];
+afterAll(async () => { await removeOfficesOf(officeUserIds); }, 120_000);
 
 describe("canonical subgroups", () => {
   it("rejects non-canonical subgroup values during registration", async () => {
@@ -15,10 +18,10 @@ describe("canonical subgroups", () => {
   });
 
   it("rejects non-canonical subgroup values during mutation", async () => {
-    const login = await request(app).post("/api/auth/login").send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
-    const cookie = login.headers["set-cookie"]![0].split(";")[0];
-    const member = await request(app).post("/api/auth/register").send({ email: `subgroup-target-${Date.now()}@example.com`, password: "vitestpass123", name: "Subgroup Target", departmentId: "computer-science", gender: "Male", academicLevel: "100 Level" });
-    const response = await request(app).patch(`/api/members/${member.body.data.id}/subgroup`).set("Cookie", cookie).send({ subgroup: "Legacy Group" });
+    const publicity = await registerWithOffice("subgroups-publicity", "publicity-coordinator");
+    officeUserIds.push(publicity.id);
+    const member = await registerWithOffice("subgroups-target");
+    const response = await request(app).patch(`/api/members/${member.id}/subgroup`).set("Cookie", publicity.cookie).send({ subgroup: "Legacy Group" });
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
   });

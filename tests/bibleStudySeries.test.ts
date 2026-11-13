@@ -50,7 +50,13 @@ describe("Bible Study Series", () => {
   let adminCookie: string;
   let memberCookie: string;
 
- 
+  it("setup: a Publicity Coordinator + a plain member", async () => {
+    const publicity = await registerWithOffice("series-publicity", "publicity-coordinator");
+    const member = await registerWithOffice("series-member");
+    officeUserIds.push(publicity.id);
+    adminCookie = publicity.cookie;
+    memberCookie = member.cookie;
+  });
 
   it("Creating a series with a non-Tuesday startDate is rejected", async () => {
     const res = await request(app).post("/api/bible-study/series").set("Cookie", adminCookie).send({

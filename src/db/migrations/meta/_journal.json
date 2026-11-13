@@ -218,6 +218,13 @@
       "when": 1790407691025,
       "tag": "0030_clever_talisman",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794495045995,
+      "tag": "0031_fat_sasquatch",
+      "breakpoints": true
     }
   ]
 }
