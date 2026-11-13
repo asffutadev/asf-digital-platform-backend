@@ -620,4 +620,8 @@ The first Bible Study run exposed and fixed a raw-PDF `format` nullability bug i
 
 ### Task 4 commit
 
-Task 4 is ready for local commit after review. No push was performed.
+Task 4 was committed locally, with no push:
+
+```text
+a8e0075 Bible Study: retain outlines and add lifecycle pagination
+```
