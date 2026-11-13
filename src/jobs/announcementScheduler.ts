@@ -21,7 +21,15 @@ export let lastSchedulerRunAt: Date | null = null;
 
 async function postAnnouncement(title: string, message: string) {
   await service.createAnnouncement(
-    { title, message, priority: "Urgent", isUrgent: true },
+    {
+      title,
+      message,
+      category: "Urgent",
+      priority: "Urgent",
+      isUrgent: true,
+      attachmentAssetIds: [],
+      audience: { gender: [], subgroups: [], levels: [] },
+    },
     null as unknown as string
   );
   await logSystemEvent({

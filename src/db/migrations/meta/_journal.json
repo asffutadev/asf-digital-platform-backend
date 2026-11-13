@@ -232,6 +232,13 @@
       "when": 1794594283177,
       "tag": "0032_slim_malcolm_colcord",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794598664327,
+      "tag": "0033_flippant_speed_demon",
+      "breakpoints": true
     }
   ]
 }

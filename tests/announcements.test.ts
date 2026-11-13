@@ -1,6 +1,8 @@
 import { describe, it, expect, afterAll, vi } from "vitest";
 import request from "supertest";
 import { app } from "../src/app.js";
+import { db } from "../src/db/index.js";
+import { mediaAssets } from "../src/db/schema/index.js";
 import { logResponse } from "./helpers/logResponse.js";
 import { registerWithOffice, removeOfficesOf } from "./helpers/officeUser.js";
 
@@ -14,6 +16,7 @@ describe("Announcements", () => {
   let memberCookie: string;
   let normalAnnouncementId: string;
   let revisionAnnouncementId: string;
+  let imageAssetId: string;
 
   it("setup: a Publicity Coordinator + a plain member", async () => {
     const publicity = await registerWithOffice("ann-publicity", "publicity-coordinator");
@@ -21,6 +24,21 @@ describe("Announcements", () => {
     officeUserIds.push(publicity.id);
     adminCookie = publicity.cookie;
     memberCookie = member.cookie;
+    const [asset] = await db
+      .insert(mediaAssets)
+      .values({
+        provider: "test",
+        publicId: `announcement-test-${Date.now()}`,
+        secureUrl: "https://cdn.example.com/announcement-test.jpg",
+        resourceType: "image",
+        format: "jpg",
+        originalFilename: "announcement-test.jpg",
+        mimeType: "image/jpeg",
+        bytes: 10,
+        createdBy: publicity.id,
+      })
+      .returning({ id: mediaAssets.id });
+    imageAssetId = asset.id;
     logResponse("Announcements", "setup (office holder created)", 201, { publicity: publicity.id });
   });
   
@@ -37,15 +55,25 @@ describe("Announcements", () => {
     logResponse("Announcements", "Member -> GET /api/announcements", res.status, res.body);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.meta).toMatchObject({ page: 1, limit: 20 });
   });
 
   it("Admin creates a normal announcement (starts as Draft)", async () => {
     const res = await request(app).post("/api/announcements").set("Cookie", adminCookie).send({
-      title: "Vitest Prayer Meeting", message: "Join us Thursday", priority: "Normal",
+      title: "Vitest Prayer Meeting",
+      message: "Join us Thursday",
+      category: "Prayer",
+      priority: "Normal",
+      imageAssetId,
+      attachmentAssetIds: [imageAssetId],
+      audience: { gender: [], subgroups: [], levels: [] },
     });
     logResponse("Announcements", "Admin -> POST /api/announcements (normal)", res.status, res.body);
     expect(res.status).toBe(201);
     expect(res.body.data.status).toBe("Draft");
+    expect(res.body.data.category).toBe("Prayer");
+    expect(res.body.data.imageUrl).toBe("https://cdn.example.com/announcement-test.jpg");
+    expect(res.body.data.attachmentAssetIds).toEqual([imageAssetId]);
     normalAnnouncementId = res.body.data.id;
   });
 
@@ -135,6 +163,67 @@ describe("Announcements", () => {
     logResponse("Announcements", "Admin -> create with isUrgent (fast-track)", res.status, res.body);
     expect(res.status).toBe(201);
     expect(res.body.data.status).toBe("Published");
+  });
+
+  it("supports direct publish, audience targeting and effective scheduled publication", async () => {
+    const direct = await request(app).post("/api/announcements").set("Cookie", adminCookie).send({
+      title: "Vitest Direct Publish",
+      message: "Visible to members immediately.",
+      category: "General",
+    });
+    expect(direct.status).toBe(201);
+    const directPublish = await request(app).patch(`/api/announcements/${direct.body.data.id}/publish`).set("Cookie", adminCookie);
+    expect(directPublish.status).toBe(200);
+    expect(directPublish.body.data.status).toBe("Published");
+
+    const targeted = await request(app).post("/api/announcements").set("Cookie", adminCookie).send({
+      title: "Vitest Female Only",
+      message: "This should not match the male test member.",
+      category: "Urgent",
+      isUrgent: true,
+      audience: { gender: ["Female"], subgroups: [], levels: [] },
+    });
+    expect(targeted.status).toBe(201);
+    const memberTarget = await request(app).get(`/api/announcements/${targeted.body.data.id}`).set("Cookie", memberCookie);
+    expect(memberTarget.status).toBe(404);
+    const publicityTarget = await request(app).get(`/api/announcements/${targeted.body.data.id}`).set("Cookie", adminCookie);
+    expect(publicityTarget.status).toBe(200);
+
+    const scheduled = await request(app).post("/api/announcements").set("Cookie", adminCookie).send({
+      title: "Vitest Effective Schedule",
+      message: "This scheduled item is already due.",
+    });
+    expect(scheduled.status).toBe(201);
+    const schedule = await request(app)
+      .patch(`/api/announcements/${scheduled.body.data.id}/schedule`)
+      .set("Cookie", adminCookie)
+      .send({ publishAt: new Date(Date.now() - 60_000).toISOString() });
+    expect(schedule.status).toBe(200);
+    expect(schedule.body.data.status).toBe("Published");
+
+    const memberList = await request(app).get("/api/announcements?search=Effective%20Schedule").set("Cookie", memberCookie);
+    expect(memberList.status).toBe(200);
+    expect(memberList.body.data[0].status).toBe("Published");
+  });
+
+  it("allows deleting only Draft announcements", async () => {
+    const draft = await request(app).post("/api/announcements").set("Cookie", adminCookie).send({
+      title: "Vitest Draft Delete",
+      message: "This draft can be deleted.",
+    });
+    expect(draft.status).toBe(201);
+    const deleted = await request(app).delete(`/api/announcements/${draft.body.data.id}`).set("Cookie", adminCookie);
+    expect(deleted.status).toBe(200);
+
+    const published = await request(app).post("/api/announcements").set("Cookie", adminCookie).send({
+      title: "Vitest Published Delete",
+      message: "This published item cannot be deleted.",
+      isUrgent: true,
+    });
+    expect(published.status).toBe(201);
+    const refused = await request(app).delete(`/api/announcements/${published.body.data.id}`).set("Cookie", adminCookie);
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe("ONLY_DRAFT_DELETABLE");
   });
 
   it("Creating with a title that's too short is rejected", async () => {

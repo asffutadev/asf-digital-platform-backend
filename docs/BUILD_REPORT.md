@@ -287,3 +287,189 @@ Vitest emitted the existing non-fatal Vite CommonJS/ESM configuration warning.
 ### Task 1 commit
 
 Task 1 is ready for local commit after review. No push was performed.
+
+## Task 2 — Announcements — 2026-11-13
+
+### Files created, modified, and deleted
+
+No files were deleted. The following files were created or modified:
+
+- `src/db/schema/announcements.ts` — adds category, image asset, attachment IDs, publish time, and JSONB audience fields; adds status/category checks and indexes for category, publish time, and audience; adds a nullable image asset foreign key. Existing columns and rows remain intact.
+- `src/db/migrations/0033_flippant_speed_demon.sql` — additive/idempotent migration for the new announcement fields, checks, indexes, and image foreign key. The generated SQL was read and rewritten because its raw `ALTER`, `ADD CONSTRAINT`, and `CREATE INDEX` statements were not fully idempotent.
+- `src/db/migrations/meta/0033_snapshot.json` — Drizzle snapshot for the Task 2 schema.
+- `src/db/migrations/meta/_journal.json` — records migration 0033.
+- `src/modules/announcements/announcements.validation.ts` — adds strict category, audience, asset, schedule, status, pagination, and filter validation. Audience arrays are canonicalized and deduplicated.
+- `src/modules/announcements/announcements.repository.ts` — adds SQL-side status/effective-schedule filtering, title/category/audience filters, member targeting, pagination, count, asset validation lookup, joined image URLs, and delete/update operations. The viewer row is joined in both page and count queries so targeting never leaks and count remains correct.
+- `src/modules/announcements/announcements.service.ts` — implements direct publish, review workflow, revision editing, scheduling, effective scheduled status, archive/delete rules, asset validation, and response mapping.
+- `src/modules/announcements/announcements.controller.ts` — validates IDs, bodies, and query parameters; adds detail, schedule, update, and delete handlers; returns pagination metadata.
+- `src/modules/announcements/announcements.routes.ts` — adds `GET /:id`, `PATCH /:id/schedule`, and `DELETE /:id`; preserves review endpoints and Publicity-only writes.
+- `src/jobs/announcementScheduler.ts` — supplies the new required default category, attachment list, and unrestricted audience when creating urgent recurring announcements.
+- `tests/announcements.test.ts` — adds coverage for pagination metadata, category/assets, direct publish, gender targeting, effective scheduling, and draft-only deletion while retaining review/revision coverage.
+
+### Database change
+
+Generated migration command:
+
+```text
+npx drizzle-kit generate
+```
+
+Final migration SQL after idempotency review:
+
+```sql
+ALTER TABLE "announcements" DROP CONSTRAINT IF EXISTS "chk_announcements_status";
+ALTER TABLE "announcements" ADD COLUMN IF NOT EXISTS "category" varchar(30) DEFAULT 'General' NOT NULL;
+ALTER TABLE "announcements" ADD COLUMN IF NOT EXISTS "image_asset_id" uuid;
+ALTER TABLE "announcements" ADD COLUMN IF NOT EXISTS "attachment_asset_ids" jsonb DEFAULT '[]'::jsonb NOT NULL;
+ALTER TABLE "announcements" ADD COLUMN IF NOT EXISTS "publish_at" timestamp with time zone;
+ALTER TABLE "announcements" ADD COLUMN IF NOT EXISTS "audience" jsonb DEFAULT '{"gender":[],"subgroups":[],"levels":[]}'::jsonb NOT NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'announcements_image_asset_id_media_assets_id_fk'
+      AND conrelid = 'announcements'::regclass
+  ) THEN
+    ALTER TABLE "announcements"
+      ADD CONSTRAINT "announcements_image_asset_id_media_assets_id_fk"
+      FOREIGN KEY ("image_asset_id") REFERENCES "public"."media_assets"("id")
+      ON DELETE set null ON UPDATE no action;
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS "idx_announcements_category" ON "announcements" USING btree ("category");
+CREATE INDEX IF NOT EXISTS "idx_announcements_publish_at" ON "announcements" USING btree ("publish_at");
+CREATE INDEX IF NOT EXISTS "idx_announcements_audience" ON "announcements" USING gin ("audience");
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_announcements_category'
+      AND conrelid = 'announcements'::regclass
+  ) THEN
+    ALTER TABLE "announcements"
+      ADD CONSTRAINT "chk_announcements_category"
+      CHECK ("announcements"."category" IN ('General', 'Prayer', 'Event', 'Academic', 'Urgent', 'Other'));
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_announcements_status'
+      AND conrelid = 'announcements'::regclass
+  ) THEN
+    ALTER TABLE "announcements"
+      ADD CONSTRAINT "chk_announcements_status"
+      CHECK ("announcements"."status" IN ('Draft', 'Scheduled', 'Pending Review', 'Revision Requested', 'Approved', 'Published', 'Archived'));
+  END IF;
+END $$;
+```
+
+Application command and real output:
+
+```text
+npm run db:migrate
+[✓] migrations applied successfully!
+```
+
+Verification query:
+
+```sql
+SELECT column_name, data_type, column_default, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'announcements'
+  AND column_name IN ('category','image_asset_id','attachment_asset_ids','publish_at','audience')
+ORDER BY column_name;
+
+SELECT constraint_name, check_clause
+FROM information_schema.check_constraints
+WHERE constraint_name IN ('chk_announcements_status','chk_announcements_category')
+ORDER BY constraint_name;
+
+SELECT indexname
+FROM pg_indexes
+WHERE indexname IN ('idx_announcements_category','idx_announcements_publish_at','idx_announcements_audience')
+ORDER BY indexname;
+```
+
+Real verification output:
+
+```json
+{
+  "columns": [
+    {"column_name":"attachment_asset_ids","data_type":"jsonb","column_default":"'[]'::jsonb","is_nullable":"NO"},
+    {"column_name":"audience","data_type":"jsonb","column_default":"'{\"gender\": [], \"levels\": [], \"subgroups\": []}'::jsonb","is_nullable":"NO"},
+    {"column_name":"category","data_type":"character varying","column_default":"'General'::character varying","is_nullable":"NO"},
+    {"column_name":"image_asset_id","data_type":"uuid","column_default":null,"is_nullable":"YES"},
+    {"column_name":"publish_at","data_type":"timestamp with time zone","column_default":null,"is_nullable":"YES"}
+  ],
+  "constraints": [
+    {"constraint_name":"chk_announcements_category","check_clause":"category is restricted to General, Prayer, Event, Academic, Urgent, Other"},
+    {"constraint_name":"chk_announcements_status","check_clause":"status is restricted to Draft, Scheduled, Pending Review, Revision Requested, Approved, Published, Archived"}
+  ],
+  "indexes": [
+    {"indexname":"idx_announcements_audience"},
+    {"indexname":"idx_announcements_category"},
+    {"indexname":"idx_announcements_publish_at"}
+  ]
+}
+```
+
+### Endpoint contract
+
+- `GET /api/announcements` — authenticated. Members receive only effective Published, non-expired announcements matching gender, subgroup, and academic-level targeting. Publicity sees all statuses. Supports title `search`, `category`, `status`, Publicity `audience=all|restricted|unrestricted`, `page`, and `limit`; returns pagination metadata and `400 VALIDATION_ERROR` for unknown values.
+- `GET /api/announcements/:id` — authenticated; returns `404 ANNOUNCEMENT_NOT_FOUND` when a member is not targeted or the item is not effectively published.
+- `POST /api/announcements` — Publicity office only; accepts category, image asset ID, attachment asset IDs, publish time, audience, and existing message/priority fields. `isUrgent` publishes immediately; otherwise the item starts as Draft.
+- `PUT /api/announcements/:id` — Publicity office only; Draft and Revision Requested items are editable and return to Draft. Other statuses return `409 INVALID_STATUS`.
+- `PATCH /api/announcements/:id/submit-review` — Publicity office only; Draft/Revision Requested → Pending Review.
+- `PATCH /api/announcements/:id/approve` — Publicity office only; Pending Review → Approved.
+- `PATCH /api/announcements/:id/request-revision` — Publicity office only; Pending Review → Revision Requested and requires notes.
+- `PATCH /api/announcements/:id/publish` — Publicity office only; Draft or Approved → Published.
+- `PATCH /api/announcements/:id/schedule` — Publicity office only; Draft → Scheduled with `publishAt`. Reads expose effective Published when the timestamp is due.
+- `PATCH /api/announcements/:id/archive` — Publicity office only; Published/Scheduled → Archived.
+- `DELETE /api/announcements/:id` — Publicity office only; Draft only, otherwise `409 ONLY_DRAFT_DELETABLE`.
+
+All malformed UUID paths return `400 INVALID_ID_FORMAT`; missing image or attachment assets return `400 MEDIA_ASSET_NOT_FOUND`.
+
+### Query-quality review and bug fixed
+
+- Audience targeting is enforced in SQL using the joined member row, so hidden announcements are excluded before both list results and detail responses.
+- Missing/empty audience criteria are unrestricted; criteria combine with AND and values inside one criterion combine with PostgreSQL JSONB-array membership (OR).
+- Member records with no subgroup cannot match a subgroup-targeted announcement.
+- Lists are paginated and use one page query plus one count query; image URLs use a join rather than N+1 lookups.
+- Added B-tree indexes for category and publish time plus a GIN index for the JSONB audience.
+- The first implementation incorrectly applied `users` audience predicates to the count query without joining `users`, producing PostgreSQL `42P01 missing FROM-clause entry for table "users"`. The count query was corrected to use the same viewer join as the page query, then the suite was rerun successfully.
+
+### Real TypeScript and test output
+
+TypeScript:
+
+```text
+npx tsc --noEmit
+Process exited with code 0
+No TypeScript diagnostics were emitted.
+```
+
+Announcements:
+
+```text
+Test Files  1 passed (1)
+Tests       17 passed (17)
+```
+
+RBAC:
+
+```text
+Test Files  1 passed (1)
+Tests       12 passed (12)
+```
+
+Vitest emitted the existing non-fatal Vite CommonJS/ESM configuration warning.
+
+### Known gaps, assumptions, and uncertainties
+
+- `attachmentAssetIds` are validated and preserved as IDs; the response does not expand them into a URL array. The image asset is expanded to `imageUrl` through the server-side join.
+- Existing `expiresAt` behavior is preserved for member reads; Publicity can still inspect expired records.
+- The existing recurring scheduler remains operational and now supplies defaults for the expanded create input.
+- Existing live test data is not deleted automatically.
+
+### Task 2 commit
+
+Task 2 is ready for local commit after review. No push was performed.
