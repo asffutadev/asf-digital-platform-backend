@@ -1,6 +1,7 @@
 import { pgTable, uuid, varchar, text, timestamp, index, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { users } from "./users.js";
+import { mediaAssets } from "./mediaAssets.js";
 
 export const events = pgTable(
   "events",
@@ -17,7 +18,8 @@ export const events = pgTable(
     mode: varchar("mode", { length: 20 }).notNull().default("In-Person"),
     theme: varchar("theme", { length: 255 }),
     imageUrl: text("image_url"),
-    status: varchar("status", { length: 20 }).notNull().default("Active"),
+    imageAssetId: uuid("image_asset_id").references(() => mediaAssets.id, { onDelete: "set null" }),
+    status: varchar("status", { length: 20 }).notNull().default("Draft"),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -25,7 +27,8 @@ export const events = pgTable(
   (table) => [
     index("idx_events_start_time").on(table.startTime),
     index("idx_events_status").on(table.status),
-    check("chk_events_status", sql`${table.status} IN ('Active', 'Cancelled')`),
+    index("idx_events_status_start_time").on(table.status, table.startTime),
+    check("chk_events_status", sql`${table.status} IN ('Draft', 'Active', 'Cancelled')`),
     check("chk_events_mode", sql`${table.mode} IN ('In-Person', 'Online / Zoom', 'Hybrid')`),
     check(
       "chk_events_category",

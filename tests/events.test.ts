@@ -1,139 +1,217 @@
 import { describe, it, expect, afterAll, vi } from "vitest";
 import request from "supertest";
 import { app } from "../src/app.js";
-import { logResponse } from "./helpers/logResponse.js";
+import { db } from "../src/db/index.js";
+import { mediaAssets, userRoles } from "../src/db/schema/index.js";
 import { registerWithOffice, removeOfficesOf } from "./helpers/officeUser.js";
 
 vi.setConfig({ testTimeout: 300_000 });
 
 const officeUserIds: string[] = [];
-afterAll(async () => { await removeOfficesOf(officeUserIds); }, 120_000);
+afterAll(async () => {
+  await removeOfficesOf(officeUserIds);
+}, 120_000);
 
-describe("Events", () => {
-  let adminCookie: string; // the Publicity Coordinator, the only office that may write events
+describe("Programs / events", () => {
+  let publicityCookie: string;
   let memberCookie: string;
   let presidentCookie: string;
-  let eventId: string;
+  let technicalCookie: string;
+  let imageAssetId: string;
+  let draftId: string;
+  let publishedId: string;
 
-  it("setup: a Publicity Coordinator, a plain member and a President (by office)", async () => {
-    const publicity = await registerWithOffice("events-publicity", "publicity-coordinator");
-    const president = await registerWithOffice("events-president", "president");
-    const member = await registerWithOffice("events-member");
+  it("sets up Publicity, member, President, Technical Administrator and an image asset", async () => {
+    const publicity = await registerWithOffice("programs-publicity", "publicity-coordinator");
+    const member = await registerWithOffice("programs-member");
+    const president = await registerWithOffice("programs-president", "president");
+    const technical = await registerWithOffice("programs-technical");
+    await db.insert(userRoles).values({ userId: technical.id, roleId: "Technical Administrator" });
     officeUserIds.push(publicity.id, president.id);
-    adminCookie = publicity.cookie;
-    presidentCookie = president.cookie;
+
+    const [asset] = await db
+      .insert(mediaAssets)
+      .values({
+        provider: "test",
+        publicId: `program-test-${Date.now()}`,
+        secureUrl: "https://cdn.example.com/program-test.jpg",
+        resourceType: "image",
+        format: "jpg",
+        originalFilename: "program-test.jpg",
+        mimeType: "image/jpeg",
+        bytes: 10,
+        createdBy: publicity.id,
+      })
+      .returning({ id: mediaAssets.id });
+
+    publicityCookie = publicity.cookie;
     memberCookie = member.cookie;
-    logResponse("Events", "setup (office holders created)", 201, { publicity: publicity.id, president: president.id });
+    presidentCookie = president.cookie;
+    technicalCookie = technical.cookie;
+    imageAssetId = asset.id;
   });
 
-  it("Member is BLOCKED from creating an event", async () => {
-    const res = await request(app).post("/api/events").set("Cookie", memberCookie).send({
-      title: "Should Fail", location: "Nowhere", startTime: "2027-01-10T08:00:00.000Z",
-    });
-    logResponse("Events", "Member -> POST /api/events (should be blocked)", res.status, res.body);
-    expect(res.status).toBe(403);
+  it("blocks member, President, Technical Administrator and outsider writes", async () => {
+    const payload = {
+      title: "Blocked Program",
+      startTime: "2027-01-10T08:00:00.000Z",
+      location: "ASF Hall",
+      description: "This should not be created.",
+      programType: "Physical",
+    };
+
+    for (const cookie of [memberCookie, presidentCookie, technicalCookie]) {
+      const response = await request(app).post("/api/events").set("Cookie", cookie).send(payload);
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("OFFICE_REQUIRED");
+    }
+
+    const outsider = await request(app).post("/api/events").send(payload);
+    expect(outsider.status).toBe(401);
   });
 
-  it("President CAN view events but is BLOCKED from creating one (view-only)", async () => {
-    const viewRes = await request(app).get("/api/events").set("Cookie", presidentCookie);
-    logResponse("Events", "President -> GET /api/events", viewRes.status, viewRes.body);
-    expect(viewRes.status).toBe(200);
-
-    const createRes = await request(app).post("/api/events").set("Cookie", presidentCookie).send({
-      title: "President Attempt", location: "Nowhere", startTime: "2027-01-10T08:00:00.000Z",
-    });
-    logResponse("Events", "President -> POST /api/events (should be blocked)", createRes.status, createRes.body);
-    expect(createRes.status).toBe(403);
-  });
-
-  it("Admin creates an event with minimal required fields only", async () => {
-    const res = await request(app).post("/api/events").set("Cookie", adminCookie).send({
+  it("creates a Draft program and resolves imageAssetId to imageUrl", async () => {
+    const response = await request(app).post("/api/events").set("Cookie", publicityCookie).send({
       title: "Vitest Youth Retreat",
-      location: "ASF Fellowship Hall",
       startTime: "2027-03-15T08:00:00.000Z",
+      location: "ASF Fellowship Hall",
+      description: "A test program with a resolved media asset.",
+      guestMinister: "Rev. Chika Nwosu",
+      programType: "Physical",
+      imageAssetId,
     });
-    logResponse("Events", "Admin -> POST /api/events (minimal fields)", res.status, res.body);
-    expect(res.status).toBe(201);
-    expect(res.body.data.status).toBe("Active");
-    eventId = res.body.data.id;
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.status).toBe("Draft");
+    expect(response.body.data.programType).toBe("Physical");
+    expect(response.body.data.imageUrl).toBe("https://cdn.example.com/program-test.jpg");
+    expect(response.body.data.startTime).toBe("2027-03-15T08:00:00.000Z");
+    draftId = response.body.data.id;
   });
 
-  it("Admin creates a full event with category, speaker, mode, theme", async () => {
-    const res = await request(app).post("/api/events").set("Cookie", adminCookie).send({
-      title: "Vitest Bible Conference",
-      location: "Main Auditorium",
-      startTime: "2027-04-20T08:00:00.000Z",
-      category: "Bible Study",
-      speaker: "Rev. Chika Nwosu",
-      speakerRole: "Guest Minister",
-      mode: "Hybrid",
-      theme: "Rooted in the Word",
+  it("rejects removed fields, invalid values and malformed IDs", async () => {
+    const removedField = await request(app).post("/api/events").set("Cookie", publicityCookie).send({
+      title: "Removed Fields",
+      startTime: "2027-03-15T08:00:00.000Z",
+      location: "ASF Hall",
+      description: "Invalid contract payload.",
+      programType: "Physical",
+      category: "Prayer",
     });
-    logResponse("Events", "Admin -> POST /api/events (full fields)", res.status, res.body);
-    expect(res.status).toBe(201);
-    expect(res.body.data.category).toBe("Bible Study");
-    expect(res.body.data.mode).toBe("Hybrid");
+    expect(removedField.status).toBe(400);
+    expect(removedField.body.error.code).toBe("VALIDATION_ERROR");
+
+    const invalidQuery = await request(app).get("/api/events?status=NotAStatus").set("Cookie", memberCookie);
+    expect(invalidQuery.status).toBe(400);
+    expect(invalidQuery.body.error.code).toBe("VALIDATION_ERROR");
+    expect(invalidQuery.body.error.details).toHaveProperty("status");
+
+    const invalidId = await request(app).get("/api/events/not-a-uuid").set("Cookie", memberCookie);
+    expect(invalidId.status).toBe(400);
+    expect(invalidId.body.error.code).toBe("INVALID_ID_FORMAT");
   });
 
-  it("Invalid category is rejected with a validation error", async () => {
-    const res = await request(app).post("/api/events").set("Cookie", adminCookie).send({
-      title: "Bad Category Event",
-      location: "Nowhere",
-      startTime: "2027-05-01T08:00:00.000Z",
-      category: "Not A Real Category",
+  it("hides drafts from members but lists them for Publicity with pagination metadata", async () => {
+    const memberList = await request(app).get("/api/events?page=1&limit=1").set("Cookie", memberCookie);
+    expect(memberList.status).toBe(200);
+    expect(memberList.body.meta).toMatchObject({ page: 1, limit: 1 });
+    expect(memberList.body.data.some((program: { id: string }) => program.id === draftId)).toBe(false);
+
+    const publicityList = await request(app).get("/api/events?status=Draft").set("Cookie", publicityCookie);
+    expect(publicityList.status).toBe(200);
+    expect(publicityList.body.data.some((program: { id: string }) => program.id === draftId)).toBe(true);
+
+    const memberDetail = await request(app).get(`/api/events/${draftId}`).set("Cookie", memberCookie);
+    expect(memberDetail.status).toBe(404);
+    expect(memberDetail.body.error.code).toBe("EVENT_NOT_FOUND");
+  });
+
+  it("updates a Draft with the Program contract", async () => {
+    const response = await request(app).put(`/api/events/${draftId}`).set("Cookie", publicityCookie).send({
+      description: "Updated program description.",
+      programType: "Online",
+      location: "Zoom",
     });
-    logResponse("Events", "Admin -> POST /api/events (invalid category)", res.status, res.body);
-    expect(res.status).toBe(400);
+    expect(response.status).toBe(200);
+    expect(response.body.data.description).toBe("Updated program description.");
+    expect(response.body.data.programType).toBe("Online");
   });
 
-  it("GET /api/events?filter=upcoming includes the new event", async () => {
-    const res = await request(app).get("/api/events?filter=upcoming").set("Cookie", adminCookie);
-    logResponse("Events", "GET /api/events?filter=upcoming", res.status, res.body);
-    expect(res.status).toBe(200);
-    const found = res.body.data.some((e: any) => e.id === eventId);
-    expect(found).toBe(true);
-  });
-
-  it("GET /api/events/featured returns a real Active upcoming event, never Cancelled", async () => {
-    const res = await request(app).get("/api/events/featured").set("Cookie", adminCookie);
-    logResponse("Events", "GET /api/events/featured", res.status, res.body);
-    expect(res.status).toBe(200);
-    expect(res.body.data.status).toBe("Active");
-  });
-
-  it("Admin edits the event", async () => {
-    const res = await request(app).put(`/api/events/${eventId}`).set("Cookie", adminCookie).send({
-      description: "Updated by Vitest",
+  it("supports upcoming, past, program type, search and archive filters", async () => {
+    const past = await request(app).post("/api/events").set("Cookie", publicityCookie).send({
+      title: "Archived Past Program",
+      startTime: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString(),
+      location: "ASF Hall",
+      description: "An old program for archive filtering.",
+      programType: "Physical",
     });
-    logResponse("Events", "Admin -> PUT /api/events/:id", res.status, res.body);
-    expect(res.status).toBe(200);
-    expect(res.body.data.description).toBe("Updated by Vitest");
+    expect(past.status).toBe(201);
+
+    const upcoming = await request(app).get("/api/events?filter=upcoming&programType=Online&search=Youth").set("Cookie", publicityCookie);
+    expect(upcoming.status).toBe(200);
+    expect(upcoming.body.data.some((program: { id: string }) => program.id === draftId)).toBe(true);
+
+    const archived = await request(app).get("/api/events?archived=only").set("Cookie", publicityCookie);
+    expect(archived.status).toBe(200);
+    expect(archived.body.data.some((program: { title: string }) => program.title === "Archived Past Program")).toBe(true);
+    expect(archived.body.data.every((program: { archived: boolean }) => program.archived)).toBe(true);
   });
 
-  it("Admin cancels the event (soft cancel, stays visible)", async () => {
-    const res = await request(app).patch(`/api/events/${eventId}/cancel`).set("Cookie", adminCookie);
-    logResponse("Events", "Admin -> PATCH /api/events/:id/cancel", res.status, res.body);
-    expect(res.status).toBe(200);
-    expect(res.body.data.status).toBe("Cancelled");
+  it("publishes the Draft and exposes it to members as Published", async () => {
+    const response = await request(app).patch(`/api/events/${draftId}/publish`).set("Cookie", publicityCookie);
+    expect(response.status).toBe(200);
+    expect(response.body.data.status).toBe("Published");
+    publishedId = draftId;
+
+    const memberDetail = await request(app).get(`/api/events/${publishedId}`).set("Cookie", memberCookie);
+    expect(memberDetail.status).toBe(200);
+    expect(memberDetail.body.data.status).toBe("Published");
   });
 
-  it("Cancelling a second time is rejected", async () => {
-    const res = await request(app).patch(`/api/events/${eventId}/cancel`).set("Cookie", adminCookie);
-    logResponse("Events", "Admin -> cancel again (should fail)", res.status, res.body);
-    expect(res.status).toBe(409);
-    expect(res.body.error.code).toBe("ALREADY_CANCELLED");
+  it("rejects edits and deletion of a published program", async () => {
+    const edit = await request(app).put(`/api/events/${publishedId}`).set("Cookie", publicityCookie).send({
+      description: "Cannot edit after publishing.",
+    });
+    expect(edit.status).toBe(409);
+    expect(edit.body.error.code).toBe("ONLY_DRAFT_EDITABLE");
+
+    const remove = await request(app).delete(`/api/events/${publishedId}`).set("Cookie", publicityCookie);
+    expect(remove.status).toBe(409);
+    expect(remove.body.error.code).toBe("ONLY_DRAFT_DELETABLE");
   });
 
-  it("Cancelled event still appears in the general list (soft delete, not removed)", async () => {
-    const res = await request(app).get("/api/events").set("Cookie", adminCookie);
-    logResponse("Events", "GET /api/events (should still include cancelled)", res.status, res.body);
-    const found = res.body.data.some((e: any) => e.id === eventId);
-    expect(found).toBe(true);
+  it("cancels the published program and rejects a second cancellation", async () => {
+    const cancel = await request(app).patch(`/api/events/${publishedId}/cancel`).set("Cookie", publicityCookie);
+    expect(cancel.status).toBe(200);
+    expect(cancel.body.data.status).toBe("Cancelled");
+
+    const again = await request(app).patch(`/api/events/${publishedId}/cancel`).set("Cookie", publicityCookie);
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe("ALREADY_CANCELLED");
+
+    const memberList = await request(app).get("/api/events?status=Cancelled").set("Cookie", memberCookie);
+    expect(memberList.status).toBe(200);
+    expect(memberList.body.data.some((program: { id: string }) => program.id === publishedId)).toBe(true);
   });
 
-  it("Unauthenticated request to events list is blocked", async () => {
-    const res = await request(app).get("/api/events");
-    logResponse("Events", "No cookie -> GET /api/events", res.status, res.body);
-    expect(res.status).toBe(401);
+  it("deletes a Draft program only", async () => {
+    const draft = await request(app).post("/api/events").set("Cookie", publicityCookie).send({
+      title: "Draft To Delete",
+      startTime: "2027-06-01T08:00:00.000Z",
+      location: "ASF Hall",
+      description: "This draft should be deletable.",
+      programType: "Physical",
+    });
+    expect(draft.status).toBe(201);
+
+    const remove = await request(app).delete(`/api/events/${draft.body.data.id}`).set("Cookie", publicityCookie);
+    expect(remove.status).toBe(200);
+    expect(remove.body.data).toBeNull();
+  });
+
+  it("keeps featured output published and never cancelled", async () => {
+    const featured = await request(app).get("/api/events/featured").set("Cookie", memberCookie);
+    expect(featured.status).toBe(200);
+    expect(featured.body.data.status).toBe("Published");
   });
 });

@@ -100,7 +100,11 @@ describe("RBAC", () => {
     expect(listRes.status).toBe(200);
 
     const createRes = await request(app).post("/api/events").set("Cookie", presidentCookie).send({
-      title: "Should Fail", location: "Nowhere", startTime: "2026-12-25T08:00:00.000Z",
+      title: "Should Fail",
+      location: "Nowhere",
+      startTime: "2026-12-25T08:00:00.000Z",
+      description: "This request should be blocked before creation.",
+      programType: "Physical",
     });
     logResponse("RBAC", "President -> POST /api/events (should be blocked)", createRes.status, createRes.body);
     expect(createRes.status).toBe(403);
