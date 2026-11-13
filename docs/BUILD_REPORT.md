@@ -625,3 +625,32 @@ Task 4 was committed locally, with no push:
 ```text
 a8e0075 Bible Study: retain outlines and add lifecycle pagination
 ```
+
+## Task 5 — Website CMS / themes — 2026-11-13
+
+### Existing implementation verification
+
+The Website CMS implementation was already present before this task and required no duplicate rewrite. The inspected implementation provides:
+
+- Public published website reads at `GET /api/content/website`.
+- Publicity-only draft reads and writes.
+- Draft save with typed section metadata, ordering, visibility, core-section flags, copy, items, and configuration.
+- Versioned publish flow that copies the draft into the published configuration.
+- Draft discard, factory reset, and preservation of the live published site during reset.
+- Existing website section types and theme-related content configuration, with media references retained in section fields.
+
+No CMS source or migration files were changed in Task 5 because the requested behavior was already implemented and changing it would expand scope without improving the contract.
+
+### Validation
+
+Dedicated test database availability was confirmed before running the CMS suite.
+
+```text
+npx vitest run tests/cms.test.ts --reporter verbose
+Test Files  1 passed (1)
+Tests       15 passed (15)
+```
+
+The suite covered public access, Publicity authorization, draft save, invalid section ordering, publish/version increment, discard, factory reset, live-site preservation, and unauthenticated access. The existing non-fatal Vite CommonJS/ESM warning was emitted.
+
+Task 5 required no source commit; the verification is recorded in this report.
