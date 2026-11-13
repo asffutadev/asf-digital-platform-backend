@@ -543,4 +543,8 @@ The existing non-fatal Vite CommonJS/ESM configuration warning was emitted. The 
 
 ### Task 3 commit
 
-Task 3 is ready for local commit after review. No push was performed.
+Task 3 was committed locally, with no push:
+
+```text
+63b1fee Media: support verified assets and protected lifecycle
+```
