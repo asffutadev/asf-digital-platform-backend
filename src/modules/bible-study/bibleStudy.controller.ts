@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import multer from "multer";
 import { PDFParse } from "pdf-parse";
-import { createBibleStudySchema, updateBibleStudySchema, createSeriesSchema } from "./bibleStudy.validation.js";
+import { createBibleStudySchema, updateBibleStudySchema, createSeriesSchema, bibleStudyListQuerySchema } from "./bibleStudy.validation.js";
 import * as service from "./bibleStudy.service.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import { AppError } from "../../errors/appError.js";
@@ -9,6 +9,7 @@ import { extractAllStudies } from "../../utils/pdfOutlineExtractor.js";
 import * as aliasRepo from "./outlineAliases.repository.js";
 import * as bookAliasRepo from "./bibleBookAliases.repository.js";
 import { hasOffice } from "../authorization/authorization.repository.js";
+import * as mediaService from "../media/media.service.js";
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -102,6 +103,12 @@ export async function uploadOutline(req: Request, res: Response, next: NextFunct
       bookAliasRepo.resolveBookByAlias,
       bookAliasRepo.resolveBooksByAlias
     );
+    const outlineAsset = await mediaService.uploadAsset(req.file, req.user!.id, {
+      category: "Bible Study",
+      tags: ["bible-study", "outline"],
+      resourceType: "raw",
+      mimeType: "application/pdf",
+    });
     const includeRawText = req.query.includeRawText === "true";
 
     return sendSuccess(
@@ -109,6 +116,7 @@ export async function uploadOutline(req: Request, res: Response, next: NextFunct
       {
         studiesFound: studies.length,
         studies,
+        outlineAsset,
         ...(includeRawText ? { rawText: extractedText } : {}),
       },
       `Detected ${studies.length} ${studies.length === 1 ? "study" : "studies"} in this document. Review and correct each before saving.`
@@ -121,9 +129,17 @@ export async function uploadOutline(req: Request, res: Response, next: NextFunct
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
     const canSeeUnpublished = await hasOffice(req.user!.id, "publicity-coordinator");
-    const studies = await service.getStudies(canSeeUnpublished);
+    const parsed = bibleStudyListQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      throw AppError.badRequest("Invalid Bible Study query", "VALIDATION_ERROR", parsed.error.flatten().fieldErrors);
+    }
+    const result = await service.getStudies(canSeeUnpublished, parsed.data.page, parsed.data.limit, parsed.data.status);
     res.set("Cache-Control", canSeeUnpublished ? "private, no-store" : "public, max-age=300");
-    return sendSuccess(res, studies);
+    return sendSuccess(res, result.data, "Bible Study lessons retrieved", {
+      total: result.total,
+      page: parsed.data.page,
+      limit: parsed.data.limit,
+    });
   } catch (err) {
     next(err);
   }
@@ -135,6 +151,22 @@ export async function getById(req: Request, res: Response, next: NextFunction) {
     const study = await service.getStudyById(req.params.id as string, canSeeUnpublished);
     res.set("Cache-Control", study.publicationStatus === "published" ? "public, max-age=3600" : "private, no-store");
     return sendSuccess(res, study);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function unpublish(req: Request, res: Response, next: NextFunction) {
+  try {
+    return sendSuccess(res, await service.unpublishStudy(req.params.id as string), "Lesson unpublished");
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function archive(req: Request, res: Response, next: NextFunction) {
+  try {
+    return sendSuccess(res, await service.archiveStudy(req.params.id as string), "Lesson archived");
   } catch (err) {
     next(err);
   }

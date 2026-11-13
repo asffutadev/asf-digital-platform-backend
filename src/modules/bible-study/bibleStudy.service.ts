@@ -5,8 +5,8 @@ import type { CreateBibleStudyInput, UpdateBibleStudyInput } from "./bibleStudy.
 import type { CreateSeriesInput } from "./bibleStudy.validation.js";
 import { isTuesday, generateWeeklySchedule } from "../../utils/bibleStudySchedule.js";
 
-export async function getStudies(canSeeUnpublished: boolean) {
-  return repo.listStudies(canSeeUnpublished);
+export async function getStudies(canSeeUnpublished: boolean, page = 1, limit = 20, status?: "draft" | "published" | "archived") {
+  return repo.listStudies(canSeeUnpublished, page, limit, status);
 }
 
 export async function getCurrentStudy() {
@@ -49,6 +49,24 @@ export async function publishStudy(id: string, publishedBy: string) {
     throw AppError.conflict("This lesson is already published", "ALREADY_PUBLISHED");
   }
   return repo.publish(id, publishedBy);
+}
+
+export async function unpublishStudy(id: string) {
+  const existing = await repo.findById(id);
+  if (!existing) throw AppError.notFound("Bible Study lesson not found", "STUDY_NOT_FOUND");
+  if (existing.publicationStatus !== "published") {
+    throw AppError.conflict("Only published lessons can be unpublished", "INVALID_STATUS");
+  }
+  return repo.setStatus(id, "draft");
+}
+
+export async function archiveStudy(id: string) {
+  const existing = await repo.findById(id);
+  if (!existing) throw AppError.notFound("Bible Study lesson not found", "STUDY_NOT_FOUND");
+  if (existing.publicationStatus === "archived") {
+    throw AppError.conflict("This lesson is already archived", "ALREADY_ARCHIVED");
+  }
+  return repo.setStatus(id, "archived");
 }
 
 // ---- Bible Study Series ----

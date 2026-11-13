@@ -548,3 +548,76 @@ Task 3 was committed locally, with no push:
 ```text
 63b1fee Media: support verified assets and protected lifecycle
 ```
+
+## Task 4 — Bible Study — 2026-11-13
+
+### Files created and modified
+
+- `src/db/schema/bibleStudy.ts` — persists structured scripture references and an optional retained outline PDF asset.
+- `src/db/migrations/0035_ordinary_sphinx.sql` — additive/idempotent migration adding `scripture_references` and `outline_asset_id`, including the media foreign key.
+- `src/db/migrations/meta/0035_snapshot.json` and `src/db/migrations/meta/_journal.json` — record the generated Drizzle migration.
+- `src/modules/bible-study/bibleStudy.validation.ts` — validates structured scripture references, optional outline assets, and paginated/status-filtered list queries.
+- `src/modules/bible-study/bibleStudy.repository.ts` — adds SQL pagination/counts and status transitions.
+- `src/modules/bible-study/bibleStudy.service.ts` — adds unpublish and archive lifecycle operations.
+- `src/modules/bible-study/bibleStudy.controller.ts` — retains uploaded PDFs through the Media provider, returns the retained asset URL/metadata, and exposes pagination and lifecycle handlers.
+- `src/modules/bible-study/bibleStudy.routes.ts` — adds `PATCH /:id/unpublish` and `PATCH /:id/archive`.
+- `src/modules/media/media.service.ts` — derives a valid fallback format for raw provider uploads whose response omits a format, fixing PDF asset persistence.
+
+### Database change and live verification
+
+Applied with:
+
+```text
+npm run db:migrate
+[✓] migrations applied successfully!
+```
+
+Live PostgreSQL metadata query returned:
+
+```json
+[
+  { "column_name": "outline_asset_id", "data_type": "uuid" },
+  { "column_name": "scripture_references", "data_type": "jsonb" }
+]
+```
+
+### Endpoint behavior
+
+- `GET /api/bible-study` now applies SQL-side page/limit/status filtering and returns pagination metadata while preserving the existing array data shape.
+- PDF outline uploads still extract structured lessons and scripture references, and now also retain the verified PDF through Cloudinary as a raw Media asset with a downloadable URL.
+- Create/update payloads support structured `scriptureReferences` and `outlineAssetId`.
+- Public members see published lessons only; Publicity can filter and inspect draft/archived lessons.
+- Publicity can publish drafts, unpublish published lessons back to draft, and archive non-archived lessons.
+- Existing current-study behavior remains unchanged and continues to select the scheduled published lesson.
+
+### Real TypeScript and test output
+
+TypeScript:
+
+```text
+npx tsc --noEmit
+Process exited with code 0
+No TypeScript diagnostics were emitted.
+```
+
+Bible Study:
+
+```text
+npx vitest run tests/bibleStudy.test.ts --reporter verbose
+Test Files  1 passed (1)
+Tests       8 passed (8)
+```
+
+Related theme/media regression:
+
+```text
+npx vitest run tests/bibleStudyThemeMedia.test.ts --reporter verbose
+Test Files  1 passed (1)
+Tests       7 passed (7)
+```
+
+The first Bible Study run exposed and fixed a raw-PDF `format` nullability bug in the shared Media mapping; the rerun passed all tests.
+
+### Task 4 commit
+
+Task 4 is ready for local commit after review. No push was performed.

@@ -45,7 +45,7 @@ export async function uploadAsset(
     publicId: stored.publicId,
     secureUrl: stored.secureUrl,
     resourceType: stored.resourceType,
-    format: stored.format,
+    format: stored.format || metadata.mimeType.split("/")[1] || metadata.resourceType,
     originalFilename: file.originalname,
     mimeType: metadata.mimeType,
     bytes: stored.bytes || file.size,

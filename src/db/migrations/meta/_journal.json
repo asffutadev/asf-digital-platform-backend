@@ -246,6 +246,13 @@
       "when": 1794600256595,
       "tag": "0034_orange_black_tom",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1794601257084,
+      "tag": "0035_ordinary_sphinx",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/requireAuth.js";
 import { requireOffice } from "../../middleware/requireOffice.js";
-import { list, current, getById, create, update, publish, uploadOutline, uploadMiddleware, createSeries, getSeries } from "./bibleStudy.controller.js";
+import { list, current, getById, create, update, publish, unpublish, archive, uploadOutline, uploadMiddleware, createSeries, getSeries } from "./bibleStudy.controller.js";
 import * as aliasRepo from "./outlineAliases.repository.js";
 import * as bookAliasRepo from "./bibleBookAliases.repository.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
@@ -68,3 +68,5 @@ bibleStudyRouter.get("/:id", requireAuth, getById);
 bibleStudyRouter.post("/", requireAuth, requireOffice("publicity-coordinator"), create);
 bibleStudyRouter.put("/:id", requireAuth, requireOffice("publicity-coordinator"), update);
 bibleStudyRouter.patch("/:id/publish", requireAuth, requireOffice("publicity-coordinator"), publish);
+bibleStudyRouter.patch("/:id/unpublish", requireAuth, requireOffice("publicity-coordinator"), unpublish);
+bibleStudyRouter.patch("/:id/archive", requireAuth, requireOffice("publicity-coordinator"), archive);

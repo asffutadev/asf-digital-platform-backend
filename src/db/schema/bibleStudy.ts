@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, text, integer, date, timestamp, jsonb, check, i
 import { sql } from "drizzle-orm";
 import { users } from "./users.js";
 import { bibleStudySeries } from "./bibleStudySeries.js";
+import { mediaAssets } from "./mediaAssets.js";
 
 export const bibleStudies = pgTable(
   "bible_studies",
@@ -13,6 +14,7 @@ export const bibleStudies = pgTable(
     theme: varchar("theme", { length: 255 }).notNull(),
     studyDate: date("study_date").notNull(),
     textRef: varchar("text_ref", { length: 255 }).notNull(),
+    scriptureReferences: jsonb("scripture_references").notNull().default([]),
     textContent: text("text_content"),
     memoryVerseRef: varchar("memory_verse_ref", { length: 100 }).notNull(),
     memoryVerseText: text("memory_verse_text").notNull(),
@@ -22,6 +24,7 @@ export const bibleStudies = pgTable(
     discussionQuestions: jsonb("discussion_questions").notNull().default([]),
     conclusion: text("conclusion").notNull(),
     prayerPoints: jsonb("prayer_points").notNull().default([]),
+    outlineAssetId: uuid("outline_asset_id").references(() => mediaAssets.id, { onDelete: "set null" }),
     publicationStatus: varchar("publication_status", { length: 50 }).notNull().default("draft"),
     seriesId: uuid("series_id").references(() => bibleStudySeries.id, { onDelete: "set null" }),
     scheduledDate: date("scheduled_date"),

@@ -1,13 +1,19 @@
 import { db } from "../../db/index.js";
 import { bibleStudies, bibleStudySeries } from "../../db/schema/index.js";
-import { eq, and, asc, desc } from "drizzle-orm";
+import { eq, and, asc, desc, count } from "drizzle-orm";
 import type { Transaction } from "../../db/index.js";
 
-export async function listStudies(includeUnpublished: boolean) {
-  return db.query.bibleStudies.findMany({
-    where: includeUnpublished ? undefined : eq(bibleStudies.publicationStatus, "published"),
-    orderBy: [desc(bibleStudies.studyDate)],
-  });
+export async function listStudies(includeUnpublished: boolean, page: number, limit: number, status?: "draft" | "published" | "archived") {
+  const conditions = [];
+  if (!includeUnpublished) conditions.push(eq(bibleStudies.publicationStatus, "published"));
+  if (status) conditions.push(eq(bibleStudies.publicationStatus, status));
+  const where = conditions.length ? and(...conditions) : undefined;
+  const offset = (page - 1) * limit;
+  const [data, totalRows] = await Promise.all([
+    db.query.bibleStudies.findMany({ where, orderBy: [desc(bibleStudies.studyDate)], limit, offset }),
+    db.select({ count: count() }).from(bibleStudies).where(where),
+  ]);
+  return { data, total: Number(totalRows[0]?.count ?? 0) };
 }
 
 export async function findCurrentStudy() {
@@ -43,6 +49,15 @@ export async function publish(id: string, publishedBy: string) {
   const [study] = await db
     .update(bibleStudies)
     .set({ publicationStatus: "published", publishedBy, publishedAt: new Date(), updatedAt: new Date() })
+    .where(eq(bibleStudies.id, id))
+    .returning();
+  return study;
+}
+
+export async function setStatus(id: string, publicationStatus: "draft" | "archived") {
+  const [study] = await db
+    .update(bibleStudies)
+    .set({ publicationStatus, updatedAt: new Date() })
     .where(eq(bibleStudies.id, id))
     .returning();
   return study;
