@@ -654,3 +654,15 @@ Tests       15 passed (15)
 The suite covered public access, Publicity authorization, draft save, invalid section ordering, publish/version increment, discard, factory reset, live-site preservation, and unauthenticated access. The existing non-fatal Vite CommonJS/ESM warning was emitted.
 
 Task 5 required no source commit; the verification is recorded in this report.
+
+## Task 6 — Final regression — 2026-11-13
+
+The final sequential regression covered Events, Announcements, Media, Bible Study, Bible Study theme media, Website CMS, and RBAC:
+
+```text
+npx vitest run tests/events.test.ts tests/announcements.test.ts tests/media.test.ts tests/bibleStudy.test.ts tests/bibleStudyThemeMedia.test.ts tests/cms.test.ts tests/rbac.test.ts --reporter verbose
+Test Files  7 passed (7)
+Tests       78 passed (78)
+```
+
+The final TypeScript check also passed with no diagnostics. No source changes were required for the dashboard verification phase; existing dashboard access remains governed by the established office/dashboard authorization middleware.
