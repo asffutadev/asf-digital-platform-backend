@@ -25,6 +25,7 @@ import { departmentsRouter } from "./modules/departments/departments.routes.js";
 import { presidentRouter } from "./modules/president/president.routes.js";
 import { governanceRouter } from "./modules/governance/governance.routes.js";
 import { handoverRouter } from "./modules/handover/handover.routes.js";
+import { publicityRouter } from "./modules/publicity/publicity.routes.js";
 
 
 export const app = express();
@@ -63,6 +64,7 @@ app.use("/api/departments", departmentsRouter);
 app.use("/api/president", presidentRouter);
 app.use("/api", governanceRouter);
 app.use("/api", handoverRouter);
+app.use("/api/publicity", publicityRouter);
 
 
 
