@@ -746,3 +746,40 @@ Task B is committed locally:
 ```text
 28c2a9d Add Publicity summary endpoint
 ```
+
+## Task C — Missing media and Bible Study tests — 2026-11-14
+
+### Changes
+
+- Added integration coverage for raw PDF media uploads, `PATCH`, `GET /assets/:id`, document/category/tag filters, and pagination metadata.
+- Added `MEDIA_ASSET_IN_USE` coverage for media placements, events, announcement image and attachment fields, website configuration copy, website section image/JSON fields, and Bible Study records.
+- Added Bible Study coverage for archive, unpublish, Publicity-only unpublished status filters, pagination metadata, saved scripture references, and `outlineAssetId`.
+- Fixed the media reference detector to include `bible_studies.outline_asset_id` and the new outline fields.
+- Fixed non-Publicity Bible Study requests for unpublished status filters to return an explicit `403 PUBLICITY_ACCESS_REQUIRED`.
+
+### Verification
+
+```text
+npx vitest run tests/taskC.coverage.test.ts --reporter verbose
+...
+ ✓ tests/taskC.coverage.test.ts > Task C coverage > sets up a Publicity user and member 8188ms
+ ✓ tests/taskC.coverage.test.ts > Task C coverage > covers raw PDF media, PATCH, GET, filters, and pagination 9958ms
+ ✓ tests/taskC.coverage.test.ts > Task C coverage > reports MEDIA_ASSET_IN_USE for every referencing table 14749ms
+ ✓ tests/taskC.coverage.test.ts > Task C coverage > covers Bible Study lifecycle, pagination, status access, scripture references, and outlineAssetId 17505ms
+
+ Test Files  1 passed (1)
+ Tests  4 passed (4)
+```
+
+```text
+npx tsc --noEmit
+Process exited with code 0
+```
+
+### Commit
+
+Task C implementation and coverage commit:
+
+```text
+cd8f5f0 Add media and Bible Study coverage
+```
