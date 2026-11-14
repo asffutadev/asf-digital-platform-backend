@@ -168,12 +168,12 @@ describe("Programs / events", () => {
     expect(memberDetail.body.data.status).toBe("Published");
   });
 
-  it("rejects edits and deletion of a published program", async () => {
+  it("allows edits to a published program but still rejects deletion", async () => {
     const edit = await request(app).put(`/api/events/${publishedId}`).set("Cookie", publicityCookie).send({
-      description: "Cannot edit after publishing.",
+      description: "Updated after publishing.",
     });
-    expect(edit.status).toBe(409);
-    expect(edit.body.error.code).toBe("ONLY_DRAFT_EDITABLE");
+    expect(edit.status).toBe(200);
+    expect(edit.body.data.description).toBe("Updated after publishing.");
 
     const remove = await request(app).delete(`/api/events/${publishedId}`).set("Cookie", publicityCookie);
     expect(remove.status).toBe(409);
@@ -188,6 +188,12 @@ describe("Programs / events", () => {
     const again = await request(app).patch(`/api/events/${publishedId}/cancel`).set("Cookie", publicityCookie);
     expect(again.status).toBe(409);
     expect(again.body.error.code).toBe("ALREADY_CANCELLED");
+
+    const edit = await request(app).put(`/api/events/${publishedId}`).set("Cookie", publicityCookie).send({
+      description: "Cancelled programs remain locked.",
+    });
+    expect(edit.status).toBe(409);
+    expect(edit.body.error.code).toBe("CANCELLED_NOT_EDITABLE");
 
     const memberList = await request(app).get("/api/events?status=Cancelled").set("Cookie", memberCookie);
     expect(memberList.status).toBe(200);

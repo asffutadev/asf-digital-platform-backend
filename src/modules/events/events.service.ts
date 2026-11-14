@@ -74,8 +74,8 @@ export async function getFeaturedEvent() {
 export async function updateEvent(id: string, input: UpdateEventInput) {
   const existing = await repo.findById(id);
   if (!existing) throw AppError.notFound("Event not found", "EVENT_NOT_FOUND");
-  if (existing.event.status !== "Draft") {
-    throw AppError.conflict("Only draft programs can be edited", "ONLY_DRAFT_EDITABLE");
+  if (existing.event.status === "Cancelled") {
+    throw AppError.conflict("Cancelled programs cannot be edited", "CANCELLED_NOT_EDITABLE");
   }
   await assertAssetExists(input.imageAssetId);
   const row = await repo.updateEvent(id, {
