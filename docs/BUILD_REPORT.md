@@ -783,3 +783,33 @@ Task C implementation and coverage commit:
 ```text
 cd8f5f0 Add media and Bible Study coverage
 ```
+
+## Task D — Published program edits — 2026-11-14
+
+### Changes
+
+- `PUT /api/events/:id` now permits edits while a program is Published.
+- Cancelled programs remain non-editable and return `409 CANCELLED_NOT_EDITABLE`.
+- Updated the lifecycle assertions to cover both behaviors.
+
+### Verification
+
+```text
+npx vitest run tests/events.test.ts --reporter verbose
+...
+ Test Files  1 passed (1)
+ Tests  12 passed (12)
+```
+
+```text
+npx tsc --noEmit
+Process exited with code 0
+```
+
+### Commit
+
+Task D implementation commit:
+
+```text
+6e93632 Allow edits to published programs
+```
