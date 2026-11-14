@@ -114,7 +114,10 @@ export async function findAssetReferences(id: string) {
       .select({ id: bibleStudies.id })
       .from(bibleStudies)
       .where(
-        sql`${bibleStudies.studyGuide}::text ILIKE '%' || ${id} || '%'
+        sql`${bibleStudies.outlineAssetId} = ${id}::uuid
+          OR ${bibleStudies.aims}::text ILIKE '%' || ${id} || '%'
+          OR ${bibleStudies.foodForThought} ILIKE '%' || ${id} || '%'
+          OR ${bibleStudies.studyGuide}::text ILIKE '%' || ${id} || '%'
           OR ${bibleStudies.discussionQuestions}::text ILIKE '%' || ${id} || '%'
           OR ${bibleStudies.prayerPoints}::text ILIKE '%' || ${id} || '%'`
       )
@@ -129,7 +132,7 @@ export async function findAssetReferences(id: string) {
     websiteCopies.length ? "website_configurations.copy" : null,
     websiteImageUrls.length ? "website_sections.image_url" : null,
     websiteJson.length ? "website_sections.json" : null,
-    bibleStudyJson.length ? "bible_studies.json" : null,
+    bibleStudyJson.length ? "bible_studies" : null,
   ].filter((reference): reference is string => reference !== null);
 }
 

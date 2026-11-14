@@ -133,6 +133,9 @@ export async function list(req: Request, res: Response, next: NextFunction) {
     if (!parsed.success) {
       throw AppError.badRequest("Invalid Bible Study query", "VALIDATION_ERROR", parsed.error.flatten().fieldErrors);
     }
+    if (parsed.data.status && parsed.data.status !== "published" && !canSeeUnpublished) {
+      throw AppError.forbidden("Only the Publicity office can filter unpublished lessons", "PUBLICITY_ACCESS_REQUIRED");
+    }
     const result = await service.getStudies(canSeeUnpublished, parsed.data.page, parsed.data.limit, parsed.data.status);
     res.set("Cache-Control", canSeeUnpublished ? "private, no-store" : "public, max-age=300");
     return sendSuccess(res, result.data, "Bible Study lessons retrieved", {
