@@ -813,3 +813,44 @@ Task D implementation commit:
 ```text
 6e93632 Allow edits to published programs
 ```
+
+## Task E — Tasks 1–4 migration verification — 2026-11-14
+
+### Migration ritual
+
+Command:
+
+```text
+npm run db:migrate
+...
+[✓] migrations applied successfully!
+```
+
+### Raw query output
+
+```text
+Task 1 events columns
+[{"column_name":"image_asset_id","data_type":"uuid","column_default":null,"is_nullable":"YES"}]
+Task 1 events constraint
+[{"constraint_name":"chk_events_status","check_clause":"((status)::text = ANY ((ARRAY['Draft'::character varying, 'Active'::character varying, 'Cancelled'::character varying])::text[]))"}]
+Task 1 events index
+[{"indexname":"idx_events_status_start_time"}]
+Task 2 announcements columns
+[{"column_name":"attachment_asset_ids","data_type":"jsonb","column_default":"'[]'::jsonb","is_nullable":"NO"},{"column_name":"audience","data_type":"jsonb","column_default":"'{\"gender\": [], \"levels\": [], \"subgroups\": []}'::jsonb","is_nullable":"NO"},{"column_name":"category","data_type":"character varying","column_default":"'General'::character varying","is_nullable":"NO"},{"column_name":"image_asset_id","data_type":"uuid","column_default":null,"is_nullable":"YES"},{"column_name":"publish_at","data_type":"timestamp with time zone","column_default":null,"is_nullable":"YES"}]
+Task 2 announcements constraints
+[{"constraint_name":"chk_announcements_category","check_clause":"((category)::text = ANY ((ARRAY['General'::character varying, 'Prayer'::character varying, 'Event'::character varying, 'Academic'::character varying, 'Urgent'::character varying, 'Other'::character varying])::text[]))"},{"constraint_name":"chk_announcements_status","check_clause":"((status)::text = ANY ((ARRAY['Draft'::character varying, 'Scheduled'::character varying, 'Pending Review'::character varying, 'Revision Requested'::character varying, 'Approved'::character varying, 'Published'::character varying, 'Archived'::character varying])::text[]))"}]
+Task 2 announcements indexes
+[{"indexname":"idx_announcements_audience"},{"indexname":"idx_announcements_category"},{"indexname":"idx_announcements_publish_at"}]
+Task 3 media columns
+[{"column_name":"category","data_type":"character varying","column_default":"'General'::character varying","is_nullable":"NO"},{"column_name":"tags","data_type":"jsonb","column_default":"'[]'::jsonb","is_nullable":"NO"}]
+Task 3 media indexes
+[{"indexname":"idx_media_assets_category"},{"indexname":"idx_media_assets_resource_type"}]
+Task 4 Bible Study columns
+[{"column_name":"aims","data_type":"jsonb","column_default":"'[]'::jsonb","is_nullable":"NO"},{"column_name":"food_for_thought","data_type":"text","column_default":null,"is_nullable":"YES"},{"column_name":"outline_asset_id","data_type":"uuid","column_default":null,"is_nullable":"YES"},{"column_name":"scripture_references","data_type":"jsonb","column_default":"'[]'::jsonb","is_nullable":"NO"},{"column_name":"study_heading","data_type":"character varying","column_default":null,"is_nullable":"YES"}]
+Task 4 Bible Study foreign key
+[{"constraint_name":"bible_studies_outline_asset_id_media_assets_id_fk","table_name":"bible_studies","foreign_table_name":"media_assets"}]
+```
+
+### Commit
+
+Task E is ready to commit after this report update.
