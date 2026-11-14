@@ -3,6 +3,7 @@ import { z } from "zod";
 export const createBibleStudySchema = z.object({
   lessonNumber: z.number().int().positive(),
   title: z.string().trim().min(2).max(255),
+  studyHeading: z.string().trim().max(255).nullable().optional(),
   topic: z.string().trim().min(2).max(255),
   theme: z.string().trim().min(2).max(255),
   studyDate: z.string().date(),
@@ -20,11 +21,13 @@ export const createBibleStudySchema = z.object({
   memoryVerseRef: z.string().trim().min(2).max(100),
   memoryVerseText: z.string().trim().min(2),
   aim: z.string().trim().min(2),
+  aims: z.array(z.string()).default([]),
   introduction: z.string().trim().min(2),
   studyGuide: z.array(z.string()).default([]),
   discussionQuestions: z.array(z.string()).default([]),
   conclusion: z.string().trim().min(2),
   prayerPoints: z.array(z.string()).default([]),
+  foodForThought: z.string().trim().nullable().optional(),
   outlineAssetId: z.string().uuid().nullable().optional(),
 });
 
@@ -51,11 +54,14 @@ const seriesLessonSchema = z.object({
   memoryVerseRef: z.string().trim().min(2).max(100),
   memoryVerseText: z.string().trim().min(2),
   aim: z.string().trim().min(2),
+  aims: z.array(z.string()).default([]),
   introduction: z.string().trim().min(2),
   studyGuide: z.array(z.string()).default([]),
   discussionQuestions: z.array(z.string()).default([]),
   conclusion: z.string().trim().min(2),
   prayerPoints: z.array(z.string()).default([]),
+  studyHeading: z.string().trim().max(255).nullable().optional(),
+  foodForThought: z.string().trim().nullable().optional(),
 });
 
 export const createSeriesSchema = z.object({

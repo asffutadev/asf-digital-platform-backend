@@ -253,6 +253,13 @@
       "when": 1794601257084,
       "tag": "0035_ordinary_sphinx",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794619357827,
+      "tag": "0036_tearful_justin_hammer",
+      "breakpoints": true
     }
   ]
 }

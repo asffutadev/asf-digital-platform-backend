@@ -38,12 +38,14 @@ export async function scanForScriptureReferences(
     chapter: number;
     verseStart: number;
     verseEnd: number | null;
+    index: number;
   }[] = [];
   let match: RegExpExecArray | null;
 
   REFERENCE_PATTERN.lastIndex = 0;
   while ((match = REFERENCE_PATTERN.exec(text)) !== null) {
     const [raw, ordinal, word, chapterStr, verseStr, verseEndStr] = match;
+    if (word.toLowerCase() === "with" && !ordinal) continue;
     const normalized = normalizeBookToken(ordinal, word);
     pendingMatches.push({
       raw: raw.trim(),
@@ -51,10 +53,31 @@ export async function scanForScriptureReferences(
       chapter: parseInt(chapterStr, 10),
       verseStart: parseInt(verseStr, 10),
       verseEnd: verseEndStr ? parseInt(verseEndStr, 10) : null,
+      index: match.index,
     });
   }
 
-  const uniqueTokens = [...new Set(pendingMatches.map((item) => item.normalized))];
+  const relativePattern = /\bwith\s+(\d{1,3}):(\d{1,3})(?:-(\d{1,3}))?/gi;
+  let relative: RegExpExecArray | null;
+  while ((relative = relativePattern.exec(text)) !== null) {
+    const previous = pendingMatches
+      .filter((item) => item.index < relative!.index)
+      .sort((a, b) => b.index - a.index)[0];
+    if (pendingMatches.some((item) => relative!.index >= item.index && relative!.index < item.index + item.raw.length)) {
+      continue;
+    }
+    pendingMatches.push({
+      raw: relative[0].trim(),
+      normalized: previous?.normalized ?? "",
+      chapter: parseInt(relative[1], 10),
+      verseStart: parseInt(relative[2], 10),
+      verseEnd: relative[3] ? parseInt(relative[3], 10) : null,
+      index: relative.index,
+    });
+  }
+  pendingMatches.sort((a, b) => a.index - b.index);
+
+  const uniqueTokens = [...new Set(pendingMatches.map((item) => item.normalized).filter(Boolean))];
   const resolvedBooks = resolveBooksByAlias
     ? await resolveBooksByAlias(uniqueTokens)
     : new Map(

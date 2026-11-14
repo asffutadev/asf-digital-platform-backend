@@ -5,6 +5,7 @@ import {
 } from "./scriptureRefScanner.js";
 
 export interface ExtractedOutline {
+  studyHeading: string | null;
   topic: string | null;
   theme: string | null;
   subTheme: string | null;
@@ -12,11 +13,13 @@ export interface ExtractedOutline {
   memoryVerseRef: string | null;
   memoryVerseText: string | null;
   aim: string | null;
+  aims: string[];
   introduction: string | null;
   studyGuide: string[];
   discussionQuestions: string[];
   conclusion: string | null;
   prayerPoints: string[];
+  foodForThought: string | null;
   scriptureReferences: ScriptureRefMatch[];
 }
 
@@ -44,15 +47,23 @@ function escapeRegex(str: string): string {
 }
 
 function buildLabelPattern(aliases: string[]): RegExp {
-  const alternation = aliases.map(escapeRegex).join("|");
+  const alternation = [...aliases].sort((a, b) => b.length - a.length).map(escapeRegex).join("|");
   return new RegExp(`^\\s*(?:${alternation})s?\\s*:?\\s*`, "i");
 }
 
 function toBulletList(block: string): string[] {
-  return block
-    .split(/\n+/)
-    .map((line) => line.replace(/^[\d\.\-\)\s]+/, "").trim())
-    .filter((line) => line.length > 0);
+  const items: string[] = [];
+  const bulletPattern = /^\s*(?:(?:\d+|[ivxlcdm]+)[.)]|[-*])\s+/i;
+  for (const rawLine of block.split(/\r?\n/)) {
+    const line = rawLine.replace(/\s+/g, " ").trim();
+    if (!line) continue;
+    if (bulletPattern.test(line) || items.length === 0) {
+      items.push(line.replace(bulletPattern, "").trim());
+    } else {
+      items[items.length - 1] = `${items[items.length - 1]} ${line}`;
+    }
+  }
+  return items.filter(Boolean);
 }
 export function splitIntoStudyBlocks(
   rawText: string,
@@ -88,9 +99,9 @@ export async function extractOutlineFromBlock(
   resolveBookId: ResolveBookIdFn,
   resolveBooksByAlias?: ResolveBooksByAliasFn
 ): Promise<ExtractedOutline> {
-  const sectionKeys: (keyof Omit<ExtractedOutline, "scriptureReferences" | "memoryVerseText">)[] = [
+  const sectionKeys: (keyof Omit<ExtractedOutline, "scriptureReferences" | "memoryVerseText" | "studyHeading" | "aims">)[] = [
     "topic", "theme", "subTheme", "textRef", "memoryVerseRef", "aim", "introduction",
-    "studyGuide", "discussionQuestions", "conclusion", "prayerPoints",
+    "studyGuide", "discussionQuestions", "conclusion", "prayerPoints", "foodForThought",
   ];
 
   const lines = blockText.split(/\r?\n/);
@@ -110,10 +121,14 @@ export async function extractOutlineFromBlock(
   markerPositions.sort((a, b) => a.lineIndex - b.lineIndex);
 
   const result: ExtractedOutline = {
+    studyHeading: null,
     topic: null, theme: null, subTheme: null, textRef: null, memoryVerseRef: null, memoryVerseText: null,
-    aim: null, introduction: null, studyGuide: [], discussionQuestions: [], conclusion: null,
-    prayerPoints: [], scriptureReferences: [],
+    aim: null, aims: [], introduction: null, studyGuide: [], discussionQuestions: [], conclusion: null,
+    prayerPoints: [], foodForThought: null, scriptureReferences: [],
   };
+
+  const firstContentLine = lines.slice(1).find((line) => line.trim())?.trim();
+  result.studyHeading = firstContentLine || null;
 
   for (let i = 0; i < markerPositions.length; i++) {
     const current = markerPositions[i];
@@ -128,15 +143,25 @@ export async function extractOutlineFromBlock(
 
     if (current.key === "studyGuide" || current.key === "discussionQuestions" || current.key === "prayerPoints") {
       result[current.key] = toBulletList(block);
+    } else if (current.key === "aim") {
+      result.aims = toBulletList(block);
+      result.aim = result.aims.join(" ");
     } else {
-      (result[current.key] as string | null) = block || null;
+      (result[current.key] as string | null) = block.replace(/\s+/g, " ").replace(/\s*---\s*$/g, "").trim() || null;
     }
   }
 
   if (result.memoryVerseRef) {
-    const parts = result.memoryVerseRef.split("\n");
-    result.memoryVerseRef = parts[0]?.trim() || null;
-    result.memoryVerseText = parts.slice(1).join(" ").trim() || null;
+    const memoryVerse = result.memoryVerseRef.replace(/\s*---\s*$/g, "").trim();
+    const separator = memoryVerse.match(/^(.+?\d+:\d+(?:-\d+)?)\s*(?:[—-]\s*)(.*)$/s);
+    if (separator) {
+      result.memoryVerseRef = separator[1].trim();
+      result.memoryVerseText = separator[2].replace(/\s+/g, " ").trim() || null;
+    } else {
+      const parts = memoryVerse.split(/\s*\n\s*/);
+      result.memoryVerseRef = parts[0]?.trim() || null;
+      result.memoryVerseText = parts.slice(1).join(" ").replace(/\s+/g, " ").trim() || null;
+    }
   }
 
 const allRefs = await scanForScriptureReferences(blockText, resolveBookId, resolveBooksByAlias);

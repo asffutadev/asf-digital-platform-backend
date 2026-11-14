@@ -666,3 +666,48 @@ Tests       78 passed (78)
 ```
 
 The final TypeScript check also passed with no diagnostics. No source changes were required for the dashboard verification phase; existing dashboard access remains governed by the established office/dashboard authorization middleware.
+
+## Task A — Bible Study extractor — 2026-11-14
+
+### Changes
+
+- Added `studyHeading`, `aims`, and `foodForThought` to extracted outlines and persisted Bible Study records.
+- Added `Aims` and `MEMORY VERSE TO LEARN` aliases; moved `Food for Thought` out of `studyGuide`.
+- Wrapped list lines now merge into their preceding item.
+- Memory verse references and text are split cleanly, with `---` removed.
+- Relative references such as `with 17:7-8` resolve against the preceding book; unknown references such as `Xzq 9:3` remain flagged.
+- Added focused fixture assertions covering all requested counts and fields.
+
+### Migration
+
+Migration file: `src/db/migrations/0036_tearful_justin_hammer.sql`
+
+Command and raw output:
+
+```text
+npm run db:migrate
+...
+[✓] migrations applied successfully!
+```
+
+The command was run twice; the second run also completed with `[✓] migrations applied successfully!`, confirming the migration is idempotent.
+
+### Verification
+
+```text
+npx vitest run tests/pdfOutlineExtractor.test.ts --reporter verbose
+...
+ ✓ tests/pdfOutlineExtractor.test.ts > Bible Study outline extraction > extracts every required field from the sample outline 483ms
+
+ Test Files  1 passed (1)
+ Tests  1 passed (1)
+```
+
+```text
+npx tsc --noEmit
+Process exited with code 0
+```
+
+### Commit
+
+Task A is ready to commit after this report update.

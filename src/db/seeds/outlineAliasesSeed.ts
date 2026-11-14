@@ -18,15 +18,17 @@ const defaultAliases: { canonicalKey: string; alias: string }[] = [
   { canonicalKey: "memoryVerseRef", alias: "Memory Verse" },
   { canonicalKey: "memoryVerseRef", alias: "Verse to Memorize" },
   { canonicalKey: "memoryVerseRef", alias: "Verse to Learn" },
+  { canonicalKey: "memoryVerseRef", alias: "Memory Verse to Learn" },
 
   { canonicalKey: "aim", alias: "Aim" },
+  { canonicalKey: "aim", alias: "Aims" },
   { canonicalKey: "aim", alias: "Objective" },
 
   { canonicalKey: "introduction", alias: "Introduction" },
 
   { canonicalKey: "studyGuide", alias: "Study Guide" },
-  { canonicalKey: "studyGuide", alias: "Food for Thought" },
   { canonicalKey: "studyGuide", alias: "Lesson Thought" },
+  { canonicalKey: "foodForThought", alias: "Food for Thought" },
 
   { canonicalKey: "discussionQuestions", alias: "Discussion Questions" },
   { canonicalKey: "discussionQuestions", alias: "Questions" },
