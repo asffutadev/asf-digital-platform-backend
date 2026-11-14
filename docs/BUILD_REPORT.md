@@ -711,3 +711,38 @@ Process exited with code 0
 ### Commit
 
 Task A is ready to commit after this report update.
+
+## Task B — Publicity summary — 2026-11-14
+
+### Changes
+
+- Added `GET /api/publicity/summary`.
+- Restricted the endpoint to authenticated users with the `publicity-coordinator` office.
+- Returned real grouped counts for announcements, programs, and Bible Studies, plus the total media-asset count.
+- Reused the existing indexed status columns (`idx_announcements_status`, `idx_events_status`, and `idx_bible_studies_status`); no per-row application-side counting or fabricated metrics were added.
+
+### Verification
+
+```text
+npx vitest run tests/publicitySummary.test.ts --reporter verbose
+...
+ ✓ tests/publicitySummary.test.ts > Publicity summary > allows only the Publicity office and returns database counts 17968ms
+
+ Test Files  1 passed (1)
+ Tests  1 passed (1)
+```
+
+The test verified a plain member receives `403`, while the Publicity office receives `200` with numeric database-derived count objects.
+
+```text
+npx tsc --noEmit
+Process exited with code 0
+```
+
+### Commit
+
+Task B is committed locally:
+
+```text
+28c2a9d Add Publicity summary endpoint
+```
