@@ -1018,3 +1018,7 @@ media
 ```
 
 The current database tables are small, so PostgreSQL chose sequential scans for the aggregate queries and the upcoming-program query despite the existing status/resource-type indexes; the audit query used `idx_audit_logs_target` and `users_pkey`. R3-8 repeats these plans at a 500-row scale before deciding whether a verified migration is needed.
+
+## Round 3 — R3-6 announcement scheduler limitation — 2026-11-16
+
+No scheduler behavior was changed. The existing `node-cron` job still runs every minute, but the Render free web service sleeps when idle, so the job runs only while the app is awake.
