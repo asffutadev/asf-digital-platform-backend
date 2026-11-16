@@ -116,7 +116,12 @@ describe("Bible Study Series", () => {
       theme: "Vitest Series Theme",
       startDate,
       lessons: [
-        buildLesson(1, { title: "Explicit Title For Lesson 1" }),
+        buildLesson(1, {
+          title: "Explicit Title For Lesson 1",
+          studyHeading: "SERIES HEADING ONE",
+          aims: ["Series aim one", "Series aim two"],
+          foodForThought: "Series thought one.",
+        }),
         buildLesson(2, { title: undefined }), // omit title on purpose
         buildLesson(3, { title: "Explicit Title For Lesson 3" }),
       ],
@@ -134,6 +139,11 @@ describe("Bible Study Series", () => {
     expect(lessons[0].title).toBe("Explicit Title For Lesson 1");
     expect(lessons[1].title).toBe(lessons[1].topic); // fallback applied
     expect(lessons[2].title).toBe("Explicit Title For Lesson 3");
+    expect(lessons[0]).toMatchObject({
+      studyHeading: "SERIES HEADING ONE",
+      aims: ["Series aim one", "Series aim two"],
+      foodForThought: "Series thought one.",
+    });
 
     expect(lessons.every((l: any) => l.publicationStatus === "draft")).toBe(true);
 
@@ -155,6 +165,31 @@ describe("Bible Study Series", () => {
     logResponse("Bible Study Series", "Admin -> GET series (should see all drafts)", res.status, res.body);
     expect(res.status).toBe(200);
     expect(res.body.data.lessons.length).toBe(3);
+    expect(res.body.data.lessons[0]).toMatchObject({
+      id: firstLessonId,
+      studyHeading: "SERIES HEADING ONE",
+      aims: ["Series aim one", "Series aim two"],
+      foodForThought: "Series thought one.",
+    });
+
+    const listRes = await request(app).get("/api/bible-study?status=draft").set("Cookie", adminCookie);
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: firstLessonId,
+        studyHeading: "SERIES HEADING ONE",
+        aims: ["Series aim one", "Series aim two"],
+        foodForThought: "Series thought one.",
+      }),
+    ]));
+
+    const detailRes = await request(app).get(`/api/bible-study/${firstLessonId}`).set("Cookie", adminCookie);
+    expect(detailRes.status).toBe(200);
+    expect(detailRes.body.data).toMatchObject({
+      studyHeading: "SERIES HEADING ONE",
+      aims: ["Series aim one", "Series aim two"],
+      foodForThought: "Series thought one.",
+    });
   });
 
   it("After publishing one lesson, the member sees exactly that one lesson", async () => {

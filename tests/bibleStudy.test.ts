@@ -36,6 +36,55 @@ describe("Bible Study", () => {
     expect([200, 404]).toContain(res.status);
   });
 
+  it("Creates a lesson and reads back studyHeading, aims, and foodForThought", async () => {
+    const lesson = {
+      lessonNumber: 900000 + Math.floor(Math.random() * 9999),
+      title: "Round Three Persistence Lesson",
+      studyHeading: "ROUND THREE HEADING",
+      topic: "Persistence topic",
+      theme: "Persistence theme",
+      studyDate: "2026-11-17",
+      textRef: "John 3:16",
+      memoryVerseRef: "John 3:16",
+      memoryVerseText: "For God so loved the world.",
+      aim: "To verify extracted fields persist.",
+      aims: ["To verify the heading.", "To verify the aims.", "To verify the thought."],
+      introduction: "Persistence test introduction.",
+      studyGuide: ["Persistence guide item."],
+      discussionQuestions: [],
+      conclusion: "Persistence test conclusion.",
+      prayerPoints: [],
+      foodForThought: "Persistence test thought.",
+    };
+    const createRes = await request(app).post("/api/bible-study").set("Cookie", adminCookie).send(lesson);
+    logResponse("Bible Study", "Admin -> create persistence lesson", createRes.status, createRes.body);
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.data).toMatchObject({
+      studyHeading: lesson.studyHeading,
+      aims: lesson.aims,
+      foodForThought: lesson.foodForThought,
+    });
+
+    const detailRes = await request(app).get(`/api/bible-study/${createRes.body.data.id}`).set("Cookie", adminCookie);
+    expect(detailRes.status).toBe(200);
+    expect(detailRes.body.data).toMatchObject({
+      studyHeading: lesson.studyHeading,
+      aims: lesson.aims,
+      foodForThought: lesson.foodForThought,
+    });
+
+    const listRes = await request(app).get("/api/bible-study?status=draft").set("Cookie", adminCookie);
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: createRes.body.data.id,
+        studyHeading: lesson.studyHeading,
+        aims: lesson.aims,
+        foodForThought: lesson.foodForThought,
+      }),
+    ]));
+  });
+
   it("Member is BLOCKED from uploading an outline PDF (no permission)", async () => {
     const res = await request(app)
       .post("/api/bible-study/upload-outline")

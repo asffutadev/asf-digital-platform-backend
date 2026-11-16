@@ -957,3 +957,21 @@ Status: 200
       Tests  8 passed (8)
    Duration 30.80s
 ```
+
+## Round 3 — R3-4 Bible Study field persistence — 2026-11-16
+
+Confirmed that `POST /api/bible-study` and `POST /api/bible-study/series` accept and persist `studyHeading`, `aims`, and `foodForThought`. Integration assertions cover create responses, `GET /api/bible-study`, `GET /api/bible-study/:id`, and series reads. No implementation change was needed.
+
+Raw verbose output:
+
+```text
+npx vitest run tests/bibleStudy.test.ts tests/bibleStudySeries.test.ts --reporter verbose
+ RUN  v5.0.1 C:/Users/HP/OneDrive/Documents/Asf app/asf-backend
+
+ ✓ tests/bibleStudySeries.test.ts > Bible Study Series > Admin creates a real 3-lesson series: dates match the generator, title falls back to topic when omitted 2205ms
+ ✓ tests/bibleStudy.test.ts > Bible Study > Creates a lesson and reads back studyHeading, aims, and foodForThought 4800ms
+
+ Test Files  2 passed (2)
+      Tests  20 passed | 1 skipped (21)
+   Duration 70.34s
+```
