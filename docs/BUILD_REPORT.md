@@ -910,3 +910,25 @@ Task 5 was not started. `tests/cms.test.ts` was not run.
 ### Commit status
 
 Task D source is already committed in `6e93632`. Tasks E and F verification are recorded above; this report update remains uncommitted.
+
+## Round 3 — R3-2 extractor assertions — 2026-11-16
+
+Updated `tests/pdfOutlineExtractor.test.ts` to assert every study's guide counts and first words, aims counts, food-for-thought presence, all memory verse references and clean text, study 5 prayer points, and the unrecognised `Xzq 9:3` reference. The food-for-thought comparison is whitespace-insensitive.
+
+Raw verbose output:
+
+```text
+npx vitest run tests/pdfOutlineExtractor.test.ts --reporter verbose
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set VITE_CONFIG_NATIVE_IGNORE_WARNING=true to suppress this warning.
+
+ RUN  v5.0.1 C:/Users/HP/OneDrive/Documents/Asf app/asf-backend
+
+ ✓ tests/pdfOutlineExtractor.test.ts > Bible Study outline extraction > extracts every required field from the sample outline 357ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  09:03:05
+   Duration 1.67s (import 64%, tests 29%, transform 5%, worker 2%)
+```

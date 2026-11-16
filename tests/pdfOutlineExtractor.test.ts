@@ -34,13 +34,22 @@ describe("Bible Study outline extraction", () => {
       aliases,
       async (token) => knownBooks.has(token) ? ({ bookId: token, bookName: token }) : null,
     );
-
     expect(studies).toHaveLength(5);
-    expect(studies.map(({ extracted }) => extracted.studyGuide)).toHaveLength(5);
     expect(studies.map(({ extracted }) => extracted.studyGuide.length)).toEqual([4, 3, 3, 3, 3]);
+    expect(studies.map(({ extracted }) => extracted.studyGuide.map((item) => item.split(/\s+/)[0]))).toEqual([
+      ["Identify", "Read", "What", "Discuss"],
+      ["What", "Read", "Share"],
+      ["What", "Read", "Discuss"],
+      ["Contrast", "Read", "Discuss"],
+      ["What", "Read", "Which"],
+    ]);
     expect(studies.map(({ extracted }) => extracted.aims.length)).toEqual([3, 3, 2, 3, 3]);
-    expect(studies[0].extracted.studyGuide).not.toContain("A heart that resists tilling will never know the joy of harvest.");
-    expect(studies[0].extracted.foodForThought).toBe("A heart that resists tilling will never know the joy of harvest.");
+    const withoutWhitespace = (value: string) => value.replace(/\s+/g, "");
+    expect(withoutWhitespace(studies[0].extracted.foodForThought ?? "")).toBe(
+      withoutWhitespace("A heart that resists tilling will never know the joy of harvest."),
+    );
+    expect(studies[0].extracted.studyGuide).not.toContain(studies[0].extracted.foodForThought);
+    expect(studies.map(({ extracted }) => extracted.foodForThought !== null)).toEqual([true, true, false, false, true]);
     expect(studies.map(({ extracted }) => extracted.studyHeading)).toEqual([
       "1ST SUNDAY AFTER TRINITY, JUNE 7 2026",
       "2ND SUNDAY AFTER TRINITY, JUNE 14 2026",
@@ -49,11 +58,26 @@ describe("Bible Study outline extraction", () => {
       "5TH SUNDAY AFTER TRINITY, JULY 5 2026",
     ]);
     expect(studies[0].extracted.studyGuide[2]).toContain("over time?");
-    expect(studies[0].extracted.memoryVerseRef).toBe("Matthew 13:8");
-    expect(studies[0].extracted.memoryVerseText).toBe(
+    expect(studies.map(({ extracted }) => extracted.memoryVerseRef)).toEqual([
+      "Matthew 13:8",
+      "James 5:8",
+      "John 15:2",
+      "Jeremiah 17:8",
+      "John 15:16",
+    ]);
+    expect(studies.map(({ extracted }) => extracted.memoryVerseText)).toEqual([
       "But the seed that fell on good soil produced a harvest, some yielding a hundred, some sixty, some thirty times what was sown.",
-    );
-    expect(studies[2].extracted.memoryVerseRef).toBe("John 15:2");
+      "You too, be patient and strengthen your hearts, for the coming of the Lord draws near.",
+      "Every branch that bears no fruit He removes, and every branch that bears fruit He trims clean so it may bear even more.",
+      "He shall be like a tree planted by the waters, spreading out its roots, unafraid when the heat comes, for its leaves stay green.",
+      "You did not choose Me, but I chose you and appointed you to go and bear fruit, fruit that will remain.",
+    ]);
+    for (const { extracted } of studies) {
+      expect(extracted.memoryVerseText).not.toMatch(/---|TO LEARN:/i);
+    }
+    expect(studies.slice(0, 4).map(({ extracted }) => extracted.prayerPoints.length)).toEqual([0, 0, 0, 0]);
+    expect(studies[4].extracted.prayerPoints).toHaveLength(3);
+    expect(studies[4].extracted.prayerPoints).not.toContain("transformation.");
     expect(studies[3].extracted.scriptureReferences.some((ref) => ref.raw === "with 17:7-8" && ref.recognized)).toBe(true);
     expect(studies[2].extracted.scriptureReferences.some((ref) => ref.raw === "Xzq 9:3" && !ref.recognized)).toBe(true);
   });
