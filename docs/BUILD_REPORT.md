@@ -628,32 +628,13 @@ a8e0075 Bible Study: retain outlines and add lifecycle pagination
 
 ## Task 5 — Website CMS / themes — 2026-11-13
 
-### Existing implementation verification
+### Status
 
-The Website CMS implementation was already present before this task and required no duplicate rewrite. The inspected implementation provides:
+**Task 5 was NOT done.** No CMS themes, `themeId`, publish history or rollback were implemented. Section types were not cleanly validated, and save and publish were not made atomic.
 
-- Public published website reads at `GET /api/content/website`.
-- Publicity-only draft reads and writes.
-- Draft save with typed section metadata, ordering, visibility, core-section flags, copy, items, and configuration.
-- Versioned publish flow that copies the draft into the published configuration.
-- Draft discard, factory reset, and preservation of the live published site during reset.
-- Existing website section types and theme-related content configuration, with media references retained in section fields.
+The earlier `cms.test.ts` run was against the live production website, not a test database; its published version number rose with each run. It is not valid clean validation and must not be repeated against production.
 
-No CMS source or migration files were changed in Task 5 because the requested behavior was already implemented and changing it would expand scope without improving the contract.
-
-### Validation
-
-Dedicated test database availability was confirmed before running the CMS suite.
-
-```text
-npx vitest run tests/cms.test.ts --reporter verbose
-Test Files  1 passed (1)
-Tests       15 passed (15)
-```
-
-The suite covered public access, Publicity authorization, draft save, invalid section ordering, publish/version increment, discard, factory reset, live-site preservation, and unauthenticated access. The existing non-fatal Vite CommonJS/ESM warning was emitted.
-
-Task 5 required no source commit; the verification is recorded in this report.
+Task 5 is blocked until a test database exists.
 
 ## Task 6 — Final regression — 2026-11-13
 
@@ -666,6 +647,10 @@ Tests       78 passed (78)
 ```
 
 The final TypeScript check also passed with no diagnostics. No source changes were required for the dashboard verification phase; existing dashboard access remains governed by the established office/dashboard authorization middleware.
+
+### Scheduler limitation
+
+The announcement scheduler runs its existing `node-cron` job every minute, but the Render free web service sleeps when idle. Therefore the job only runs while the app is awake; scheduler behavior was not changed in this round.
 
 ## Task A — Bible Study extractor — 2026-11-14
 
@@ -851,6 +836,77 @@ Task 4 Bible Study foreign key
 [{"constraint_name":"bible_studies_outline_asset_id_media_assets_id_fk","table_name":"bible_studies","foreign_table_name":"media_assets"}]
 ```
 
-### Commit
+### Task F — Separate regression output — 2026-11-14
 
-Task E is ready to commit after this report update.
+Each command was run separately with `--reporter verbose`. The first pass encountered transient Neon DNS resolution failures in `handover.test.ts`, `fsClasses.test.ts`, and `fsFinalize.test.ts`; each was rerun separately and passed. Raw final result output:
+
+```text
+===== npx vitest run tests/members.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+===== npx vitest run tests/passwordChange.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+===== npx vitest run tests/publicityAccess.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+===== npx vitest run tests/president.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+===== npx vitest run tests/governance.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+===== npx vitest run tests/auth.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+===== npx vitest run tests/authorization.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+===== npx vitest run tests/handover.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+===== npx vitest run tests/officeAccess.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+===== npx vitest run tests/rbac.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 12 passed (12)
+===== npx vitest run tests/users.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 8 passed (8)
+===== npx vitest run tests/subgroups.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 2 passed (2)
+===== npx vitest run tests/fs.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 18 passed (18)
+===== npx vitest run tests/fsAdmissions.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 7 passed (7)
+===== npx vitest run tests/fsClasses.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 7 passed (7)
+===== npx vitest run tests/fsFinalize.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 11 passed (11)
+===== npx vitest run tests/fsManual.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 7 passed (7)
+===== npx vitest run tests/fsSessions.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 4 passed (4)
+===== npx vitest run tests/fsStudents.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 8 passed (8)
+===== npx vitest run tests/fsTeachers.test.ts --reporter verbose =====
+ Test Files  1 passed (1)
+      Tests 8 passed (8)
+```
+
+Final regression total: **20 files passed, 152 tests passed**.
+
+Task 5 was not started. `tests/cms.test.ts` was not run.
+
+### Commit status
+
+Task D source is already committed in `6e93632`. Tasks E and F verification are recorded above; this report update remains uncommitted.
