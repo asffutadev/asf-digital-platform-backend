@@ -1068,6 +1068,47 @@ bibleStudy
 
 The only sequential scan is the one-row scratch viewer table used for announcement targeting; it is expected and not an application list-table scan. No application sequential scan needed an additional verified index.
 
+## Round 3 — R3-9 final regression — 2026-11-16
+
+Ran every `tests/*.test.ts` file one at a time except `cms.test.ts`, `academicProgression.test.ts`, and `pdfOutlineExtractor.test.ts`. Final raw pass counts:
+
+```text
+academicSessions.test.ts: Test Files  1 passed (1); Tests  8 passed (8); exit=0
+announcements.test.ts: Test Files  1 passed (1); Tests  17 passed (17); exit=0
+auth.test.ts: Test Files  1 passed (1); Tests  11 passed (11); exit=0
+authorization.test.ts: Test Files  1 passed (1); Tests  1 passed (1); exit=0
+bible.test.ts: Test Files  1 passed (1); Tests  11 passed (11); exit=0
+bibleStudy.test.ts: Test Files  1 passed (1); Tests  9 passed (9); exit=0
+bibleStudySchedule.test.ts: Test Files  1 passed (1); Tests  8 passed (8); exit=0
+bibleStudySeries.test.ts: Test Files  1 passed (1); Tests  11 passed | 1 skipped (12); exit=0
+bibleStudyThemeMedia.test.ts: Test Files  1 passed (1); Tests  7 passed (7); exit=0
+events.test.ts: Test Files  1 passed (1); Tests  12 passed (12); exit=0
+fs.test.ts: Test Files  1 passed (1); Tests  18 passed (18); exit=0
+fsAdmissions.test.ts: Test Files  1 passed (1); Tests  7 passed (7); exit=0
+fsClasses.test.ts: Test Files  1 passed (1); Tests  7 passed (7); exit=0
+fsFinalize.test.ts: Test Files  1 passed (1); Tests  11 passed (11); exit=0
+fsManual.test.ts: Test Files  1 passed (1); Tests  7 passed (7); exit=0
+fsSessions.test.ts: Test Files  1 passed (1); Tests  4 passed (4); exit=0
+fsStudents.test.ts: Test Files  1 passed (1); Tests  8 passed (8); exit=0
+fsTeachers.test.ts: Test Files  1 passed (1); Tests  8 passed (8); exit=0
+governance.test.ts: Test Files  1 passed (1); Tests  7 passed (7); exit=0
+handover.test.ts: Test Files  1 passed (1); Tests  9 passed (9); exit=0
+media.test.ts: Test Files  1 passed (1); Tests  7 passed (7); exit=0
+members.test.ts: Test Files  1 passed (1); Tests  10 passed (10); exit=0
+officeAccess.test.ts: Test Files  1 passed (1); Tests  3 passed (3); exit=0
+passwordChange.test.ts: Test Files  1 passed (1); Tests  6 passed (6); exit=0
+phaseA.test.ts: Test Files  1 passed (1); Tests  1 passed (1); exit=0
+president.test.ts: Test Files  1 passed (1); Tests  5 passed (5); exit=0
+publicityAccess.test.ts: Test Files  1 passed (1); Tests  8 passed (8); exit=0
+publicitySummary.test.ts: Test Files  1 passed (1); Tests  1 passed (1); exit=0
+rbac.test.ts: Test Files  1 passed (1); Tests  12 passed (12); exit=0
+subgroups.test.ts: Test Files  1 passed (1); Tests  2 passed (2); exit=0
+taskC.coverage.test.ts: Test Files  1 passed (1); Tests  4 passed (4); exit=0
+users.test.ts: Test Files  1 passed (1); Tests  8 passed (8); exit=0
+```
+
+Final total: **32 files passed, 248 tests passed, 1 skipped**. `cms.test.ts` was not run; no test database exists, so Task 5 remains blocked.
+
 ## Round 3 — R3-7 Cloudinary upload limits — 2026-11-16
 
 Cloudinary's current plan comparison lists the Free-plan maximums as:
