@@ -975,3 +975,46 @@ npx vitest run tests/bibleStudy.test.ts tests/bibleStudySeries.test.ts --reporte
       Tests  20 passed | 1 skipped (21)
    Duration 70.34s
 ```
+
+## Round 3 — R3-5 Publicity summary — 2026-11-16
+
+Expanded `GET /api/publicity/summary` with upcoming active programs, recent Publicity-relevant audit entries joined to actor names, pending/revision announcement counts, and media counts for image, video, and raw resources. All eight summary reads run in one `Promise.all` batch; no per-row queries are used. Existing count fields remain unchanged, and the endpoint test now checks field shapes, ordering, status-count consistency, and media-count consistency.
+
+`EXPLAIN (COSTS OFF)` output for the four new query shapes:
+
+```text
+upcoming
+[
+  'Limit',
+  '  ->  Sort',
+  '        Sort Key: start_time',
+  '        ->  Seq Scan on events',
+  "              Filter: (((status)::text = 'Active'::text) AND (start_time >= now()))"
+]
+audit
+[
+  'Limit',
+  '  ->  Sort',
+  '        Sort Key: al.created_at DESC',
+  '        ->  Nested Loop',
+  '              ->  Index Scan using idx_audit_logs_target on audit_logs al',
+  "                    Index Cond: ((target_type)::text = ANY ('{event,announcement,media_asset,bible_study,website}'::text[]))",
+  '              ->  Index Scan using users_pkey on users u',
+  '                    Index Cond: (id = al.actor_id)'
+]
+awaiting
+[
+  'HashAggregate',
+  '  Group Key: status',
+  '  ->  Seq Scan on announcements',
+  `        Filter: ((status)::text = ANY ('{"Pending Review","Revision Requested"}'::text[]))`
+]
+media
+[
+  'HashAggregate',
+  '  Group Key: resource_type',
+  '  ->  Seq Scan on media_assets'
+]
+```
+
+The current database tables are small, so PostgreSQL chose sequential scans for the aggregate queries and the upcoming-program query despite the existing status/resource-type indexes; the audit query used `idx_audit_logs_target` and `users_pkey`. R3-8 repeats these plans at a 500-row scale before deciding whether a verified migration is needed.
