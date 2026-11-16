@@ -14,7 +14,7 @@ import {
 import { fileTypeFromBuffer } from "file-type";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-export const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_VIDEO_BYTES = 95 * 1024 * 1024;
 
 const upload = multer({

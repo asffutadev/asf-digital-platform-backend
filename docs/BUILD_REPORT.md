@@ -1022,3 +1022,24 @@ The current database tables are small, so PostgreSQL chose sequential scans for 
 ## Round 3 — R3-6 announcement scheduler limitation — 2026-11-16
 
 No scheduler behavior was changed. The existing `node-cron` job still runs every minute, but the Render free web service sleeps when idle, so the job runs only while the app is awake.
+
+## Round 3 — R3-7 Cloudinary upload limits — 2026-11-16
+
+Cloudinary's current plan comparison lists the Free-plan maximums as:
+
+- Image: **10 MB**
+- Video: **100 MB**
+- Raw files, including PDFs: **10 MB**
+
+Source: [Cloudinary Compare Plans](https://cloudinary.com/pricing/compare-plans).
+
+Our limits were 10 MB for images, 95 MB for video, and 20 MB for raw/PDF files. The raw/PDF limit exceeded Cloudinary's verified 10 MB Free-plan maximum, so `MAX_DOCUMENT_BYTES` in `src/modules/media/media.controller.ts` was reduced to 10 MB. Image and video limits remain within the documented limits. The separate Multer ceiling remains 95 MB to preserve the existing video ceiling; resource-specific validation rejects raw files above 10 MB before provider upload.
+
+Validation:
+
+```text
+npx vitest run tests/media.test.ts --reporter verbose
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Duration 29.45s
+```
