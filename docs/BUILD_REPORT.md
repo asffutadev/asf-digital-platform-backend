@@ -1023,6 +1023,51 @@ The current database tables are small, so PostgreSQL chose sequential scans for 
 
 No scheduler behavior was changed. The existing `node-cron` job still runs every minute, but the Render free web service sleeps when idle, so the job runs only while the app is awake.
 
+## Round 3 — R3-8 query and index review — 2026-11-16
+
+Used temporary scratch tables with **5,000 rows per domain** (programs, targeted announcements, media assets, and Bible Studies), `ANALYZE`, and the same filtering/order shapes as the main list queries. The scratch tables and rows were connection-local and were discarded when the connection closed. No migration was added because the verified plans used the existing index patterns.
+
+Raw `EXPLAIN (COSTS OFF)` output:
+
+```text
+programs
+[
+  'Limit',
+  '  ->  Sort',
+  '        Sort Key: start_time',
+  '        ->  Bitmap Heap Scan on scratch_events e',
+  "              Recheck Cond: ((status = ANY ('{Active,Cancelled}'::text[])) AND (start_time >= now()))",
+  '              ->  Bitmap Index Scan on scratch_events_status_start',
+  "                    Index Cond: ((status = ANY ('{Active,Cancelled}'::text[])) AND (start_time >= now()))"
+]
+announcements
+[
+  'Limit',
+  '  ->  Sort',
+  '        Sort Key: a.created_at DESC',
+  '        ->  Nested Loop Left Join',
+  '              ->  Bitmap Heap Scan on scratch_announcements a',
+  "                    Recheck Cond: (status = 'Published'::text)",
+  '                    ->  Bitmap Index Scan on scratch_announcements_status',
+  "                          Index Cond: (status = 'Published'::text)",
+  '              ->  Materialize',
+  '                    ->  Seq Scan on scratch_users u'
+]
+media
+[
+  'Limit',
+  '  ->  Index Scan using scratch_media_created on scratch_media'
+]
+bibleStudy
+[
+  'Limit',
+  '  ->  Index Scan using scratch_bible_date on scratch_bible',
+  "        Filter: (publication_status = 'published'::text)"
+]
+```
+
+The only sequential scan is the one-row scratch viewer table used for announcement targeting; it is expected and not an application list-table scan. No application sequential scan needed an additional verified index.
+
 ## Round 3 — R3-7 Cloudinary upload limits — 2026-11-16
 
 Cloudinary's current plan comparison lists the Free-plan maximums as:
