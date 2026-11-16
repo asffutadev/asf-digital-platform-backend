@@ -932,3 +932,28 @@ Set VITE_CONFIG_NATIVE_IGNORE_WARNING=true to suppress this warning.
    Start at  09:03:05
    Duration 1.67s (import 64%, tests 29%, transform 5%, worker 2%)
 ```
+
+## Round 3 — R3-3 real upload assertions — 2026-11-16
+
+Extended the real `POST /api/bible-study/upload-outline` test to assert five extracted studies, guide and aims counts, headings, food-for-thought presence, all clean memory verses, and the unrecognised `Xzq 9:3` reference. The live alias tables produced the expected result, so no alias or extractor change was needed.
+
+Raw verbose output:
+
+```text
+npx vitest run tests/bibleStudy.test.ts --reporter verbose
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set VITE_CONFIG_NATIVE_IGNORE_WARNING=true to suppress this warning.
+
+ RUN  v5.0.1 C:/Users/HP/OneDrive/Documents/Asf app/asf-backend
+
+--- Admin -> upload real PDF outline ---
+Status: 200
+    "studiesFound": 5,
+              "raw": "Xzq 9:3",
+              "recognized": false
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Duration 30.80s
+```
