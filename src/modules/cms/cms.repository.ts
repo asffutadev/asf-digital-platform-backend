@@ -84,7 +84,7 @@ export async function replaceSections(executor: Executor, configId: string, sect
   await executor.insert(websiteSections).values(
     sections.map((section) => ({
       configId,
-      sectionKey: section.sectionKey ?? section.id,
+      sectionKey: section.sectionKey ?? section.id ?? `section-${section.order}`,
       type: section.type,
       title: section.title,
       subtitle: section.subtitle ?? null,
