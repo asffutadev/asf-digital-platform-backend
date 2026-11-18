@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, text, jsonb, integer, boolean, timestamp, check
 import { sql } from "drizzle-orm";
 import { websiteConfigurations } from "./websiteConfigurations.js";
 import { users } from "./users.js";
+import { mediaAssets } from "./mediaAssets.js";
 
 export const websiteSections = pgTable(
   "website_sections",
@@ -16,6 +17,7 @@ export const websiteSections = pgTable(
     subtitle: text("subtitle"),
     description: text("description"),
     imageUrl: text("image_url"),
+    imageAssetId: uuid("image_asset_id").references(() => mediaAssets.id, { onDelete: "set null" }),
     items: jsonb("items").notNull().default([]),
     configuration: jsonb("configuration").notNull().default({}),
     isCore: boolean("is_core").notNull().default(false),
