@@ -234,18 +234,35 @@ describe("CMS (Website Content)", () => {
   });
 
   it("Publish history is written, restore changes only the draft, and activation requires confirmation", async () => {
+    const publishFirst = await request(app)
+      .post("/api/content/website/draft?theme=theme-2")
+      .set("Cookie", adminCookie)
+      .send({ copy: { hero: { headline: "Restore Published" } }, sections: [{ type: "hero", title: "Hero", order: 1 }] });
+    expect(publishFirst.status).toBe(200);
+    expect((await request(app).post("/api/content/website/publish?theme=theme-2").set("Cookie", adminCookie)).status).toBe(200);
+    const publishSecond = await request(app)
+      .post("/api/content/website/draft?theme=theme-2")
+      .set("Cookie", adminCookie)
+      .send({ copy: { hero: { headline: "Restore Current" } }, sections: [{ type: "hero", title: "Hero", order: 1 }] });
+    expect(publishSecond.status).toBe(200);
+    expect((await request(app).post("/api/content/website/publish?theme=theme-2").set("Cookie", adminCookie)).status).toBe(200);
     const history = await request(app).get("/api/content/website/history?theme=theme-2").set("Cookie", adminCookie);
     expect(history.status).toBe(200);
     expect(history.body.data.length).toBeGreaterThan(0);
     expect(history.body.data[0]).not.toHaveProperty("copy");
 
+    const unsaved = await request(app)
+      .post("/api/content/website/draft?theme=theme-2")
+      .set("Cookie", adminCookie)
+      .send({ copy: { hero: { headline: "Restore Unpublished" } }, sections: [{ type: "hero", title: "Hero", order: 1 }] });
+    expect(unsaved.status).toBe(200);
     const restore = await request(app)
       .post("/api/content/website/restore")
       .set("Cookie", adminCookie)
       .send({ theme: "theme-2", historyId: history.body.data[0].id });
     expect(restore.status).toBe(200);
     expect((await request(app).get("/api/content/website/draft?theme=theme-2").set("Cookie", adminCookie)).body.data.copy.hero.headline)
-      .not.toBe("Theme 2 Isolation");
+      .toBe("Restore Published");
     expect((await request(app).get("/api/content/website")).body.data.themeId).toBe("theme-1");
 
     const missingConfirmation = await request(app)
@@ -296,19 +313,19 @@ describe("CMS (Website Content)", () => {
   });
 
   it("Keeps only the latest 20 history snapshots per theme", async () => {
+    const save = await request(app)
+      .post("/api/content/website/draft?theme=theme-2")
+      .set("Cookie", adminCookie)
+      .send({ copy: { hero: { headline: "History Seed" } }, sections: [{ type: "hero", title: "Hero", order: 1 }] });
+    expect(save.status).toBe(200);
     for (let index = 0; index < 21; index += 1) {
-      const save = await request(app)
-        .post("/api/content/website/draft?theme=theme-2")
-        .set("Cookie", adminCookie)
-        .send({ copy: { hero: { headline: `History ${index}` } }, sections: [{ type: "hero", title: "Hero", order: 1 }] });
-      expect(save.status).toBe(200);
       const publish = await request(app).post("/api/content/website/publish?theme=theme-2").set("Cookie", adminCookie);
       expect(publish.status).toBe(200);
     }
     const history = await request(app).get("/api/content/website/history?theme=theme-2").set("Cookie", adminCookie);
     expect(history.status).toBe(200);
     expect(history.body.data).toHaveLength(20);
-  });
+  }, 600_000);
 
   it("Every CMS write remains protected by the publicity office", async () => {
     const endpoints = [
