@@ -7,6 +7,7 @@ import {
   mediaAssets,
   mediaPlacements,
   websiteConfigurations,
+  websitePublishHistory,
   websiteSections,
 } from "../../db/schema/index.js";
 import type { ListMediaQuery, UpdateMediaInput } from "./media.types.js";
@@ -87,6 +88,7 @@ export async function findAssetReferences(id: string) {
     websiteCopies,
     websiteImageUrls,
     websiteJson,
+    websiteHistory,
     bibleStudyJson,
   ] = await Promise.all([
     db.select({ id: mediaPlacements.id }).from(mediaPlacements).where(eq(mediaPlacements.currentAssetId, id)).limit(1),
@@ -111,6 +113,11 @@ export async function findAssetReferences(id: string) {
       )
       .limit(1),
     db
+      .select({ id: websitePublishHistory.id })
+      .from(websitePublishHistory)
+      .where(sql`${websitePublishHistory.copy}::text ILIKE '%' || ${id} || '%' OR ${websitePublishHistory.sections}::text ILIKE '%' || ${id} || '%'`)
+      .limit(1),
+    db
       .select({ id: bibleStudies.id })
       .from(bibleStudies)
       .where(
@@ -132,6 +139,7 @@ export async function findAssetReferences(id: string) {
     websiteCopies.length ? "website_configurations.copy" : null,
     websiteImageUrls.length ? "website_sections.image_url" : null,
     websiteJson.length ? "website_sections.json" : null,
+    websiteHistory.length ? "website_publish_history" : null,
     bibleStudyJson.length ? "bible_studies" : null,
   ].filter((reference): reference is string => reference !== null);
 }

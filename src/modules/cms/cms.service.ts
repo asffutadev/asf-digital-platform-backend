@@ -4,6 +4,7 @@ import { recordAudit } from "../../utils/auditLog.js";
 import { defaultCopy, defaultSections } from "../../config/websiteDefaults.config.js";
 import { defaultThemeId, getWebsiteTheme, websiteThemes } from "../../config/websiteThemes.config.js";
 import * as repo from "./cms.repository.js";
+import { sectionSchema } from "./cms.validation.js";
 import type { SaveDraftInput } from "./cms.validation.js";
 
 function assertTheme(themeId: string) {
@@ -61,8 +62,23 @@ export async function listThemes() {
   };
 }
 
-export async function saveDraft(input: SaveDraftInput, userId: string, themeId = defaultThemeId) {
-  assertTheme(themeId);
+export async function saveDraft(input: SaveDraftInput, userId: string, themeId: string = defaultThemeId) {
+  const theme = assertTheme(themeId);
+  const sectionErrors = input.sections.flatMap((section, index) => {
+    const parsed = sectionSchema.safeParse(section);
+    return parsed.success ? [] : [{ index, errors: parsed.error.flatten() }];
+  });
+  const unsupportedTypes = input.sections
+    .map((section, index) => ({ index, type: section.type }))
+    .filter(({ type }) => !theme.supportedSectionTypes.includes(type as never));
+  const orders = input.sections.map((section) => section.order);
+  if (sectionErrors.length || unsupportedTypes.length || new Set(orders).size !== orders.length) {
+    throw AppError.badRequest("Invalid website data", "VALIDATION_ERROR", {
+      sections: sectionErrors,
+      unsupportedTypes,
+      order: new Set(orders).size !== orders.length ? ["Section order must be unique"] : undefined,
+    });
+  }
   return db.transaction(async (tx) => {
     const draft = await ensureConfig(tx, "draft", themeId, userId);
     await repo.updateDraft(tx, draft!.id, input.copy, userId);
@@ -71,7 +87,7 @@ export async function saveDraft(input: SaveDraftInput, userId: string, themeId =
   });
 }
 
-export async function publish(userId: string, themeId = defaultThemeId) {
+export async function publish(userId: string, themeId: string = defaultThemeId) {
   assertTheme(themeId);
   return db.transaction(async (tx) => {
     const draft = await repo.getConfigWithSections(tx, "draft", themeId);
@@ -94,7 +110,7 @@ export async function publish(userId: string, themeId = defaultThemeId) {
   });
 }
 
-export async function discardDraft(userId: string, themeId = defaultThemeId) {
+export async function discardDraft(userId: string, themeId: string = defaultThemeId) {
   assertTheme(themeId);
   return db.transaction(async (tx) => {
     const published = await repo.getConfigWithSections(tx, "published", themeId);
@@ -106,7 +122,7 @@ export async function discardDraft(userId: string, themeId = defaultThemeId) {
   });
 }
 
-export async function factoryReset(userId: string, themeId = defaultThemeId) {
+export async function factoryReset(userId: string, themeId: string = defaultThemeId) {
   assertTheme(themeId);
   return db.transaction(async (tx) => {
     const draft = await ensureConfig(tx, "draft", themeId, userId);
@@ -117,10 +133,15 @@ export async function factoryReset(userId: string, themeId = defaultThemeId) {
   });
 }
 
-export async function getHistory(themeId = defaultThemeId) {
+export async function getHistory(themeId: string = defaultThemeId) {
   assertTheme(themeId);
   const rows = await repo.listHistory(db, themeId);
-  return rows.map((row) => ({ ...row, publishedBy: row.publishedBy ? { id: row.publishedBy } : null }));
+  return rows.map((row) => ({
+    id: row.id,
+    version: row.version,
+    publishedAt: row.publishedAt,
+    publishedBy: row.publishedByName ? { name: row.publishedByName } : null,
+  }));
 }
 
 export async function restore(themeId: string, historyId: string, userId: string) {

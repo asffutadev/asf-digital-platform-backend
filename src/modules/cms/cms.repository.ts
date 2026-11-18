@@ -6,6 +6,7 @@ import {
   websitePublishHistory,
   websiteSections,
   websiteSettings,
+  users,
 } from "../../db/schema/index.js";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { defaultCopy, defaultSections } from "../../config/websiteDefaults.config.js";
@@ -149,8 +150,10 @@ export async function listHistory(executor: Executor, themeId: string) {
       version: websitePublishHistory.version,
       publishedAt: websitePublishHistory.publishedAt,
       publishedBy: websitePublishHistory.publishedBy,
+      publishedByName: users.name,
     })
     .from(websitePublishHistory)
+    .leftJoin(users, eq(users.id, websitePublishHistory.publishedBy))
     .where(eq(websitePublishHistory.themeId, themeId))
     .orderBy(desc(websitePublishHistory.publishedAt));
 }
