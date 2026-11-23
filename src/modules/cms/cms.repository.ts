@@ -185,7 +185,7 @@ export async function findHistory(executor: Executor, historyId: string) {
 
 export async function getActiveThemeId(executor: Executor) {
   const [settings] = await executor.select().from(websiteSettings).where(eq(websiteSettings.id, 1));
-  return settings?.activeThemeId ?? "theme-1";
+  return settings?.activeThemeId ?? "classic-auditoria";
 }
 
 export async function setActiveThemeId(executor: Executor, themeId: string) {
