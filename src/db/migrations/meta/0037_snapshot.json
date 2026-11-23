@@ -1,5 +1,5 @@
 {
-  "id": "416b8cbf-003a-4e0b-bd2a-d7640424c3c7",
+  "id": "d4d43644-c678-4214-b10b-cdb7f4f31d5e",
   "prevId": "3bbb9bd6-9f66-44af-8a22-924089554f52",
   "version": "7",
   "dialect": "postgresql",
@@ -3226,13 +3226,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "theme_id": {
-          "name": "theme_id",
-          "type": "varchar(60)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'theme-1'"
-        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -3288,15 +3281,9 @@
         }
       },
       "indexes": {
-        "uq_website_config_theme_status": {
-          "name": "uq_website_config_theme_status",
+        "uq_website_config_status": {
+          "name": "uq_website_config_status",
           "columns": [
-            {
-              "expression": "theme_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
             {
               "expression": "status",
               "isExpression": false,
@@ -3532,7 +3519,7 @@
           "type": "varchar(60)",
           "primaryKey": false,
           "notNull": true,
-          "default": "'theme-1'"
+          "default": "'classic-auditoria'"
         }
       },
       "indexes": {},
