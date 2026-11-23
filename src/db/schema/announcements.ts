@@ -17,6 +17,7 @@ export const announcements = pgTable(
     message: text("message").notNull(),
     priority: varchar("priority", { length: 20 }).notNull().default("Normal"),
     isUrgent: boolean("is_urgent").notNull().default(false),
+    isPublic: boolean("is_public").notNull().default(false),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     category: varchar("category", { length: 30 }).notNull().default("General"),
     imageAssetId: uuid("image_asset_id").references(() => mediaAssets.id, { onDelete: "set null" }),
