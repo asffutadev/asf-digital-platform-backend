@@ -6,7 +6,6 @@ export const websiteConfigurations = pgTable(
   "website_configurations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    themeId: varchar("theme_id", { length: 60 }).notNull().default("theme-1"),
     version: integer("version").notNull().default(1),
     status: varchar("status", { length: 20 }).notNull().default("draft"),
     copy: jsonb("copy").notNull().default({}),
@@ -18,6 +17,6 @@ export const websiteConfigurations = pgTable(
   },
   (table) => [
     check("chk_website_config_status", sql`${table.status} IN ('draft', 'published')`),
-    uniqueIndex("uq_website_config_theme_status").on(table.themeId, table.status),
+    uniqueIndex("uq_website_config_status").on(table.status),
   ]
 );

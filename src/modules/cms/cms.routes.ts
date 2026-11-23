@@ -9,6 +9,7 @@ const publicityAccess = [requireAuth, requireOffice("publicity-coordinator")];
 
 cmsRouter.get("/website", getPublic);
 cmsRouter.get("/website/themes", getThemes);
+cmsRouter.get("/themes", getThemes);
 cmsRouter.get("/website/draft", ...publicityAccess, getDraft);
 cmsRouter.post("/website/draft", ...publicityAccess, saveDraft);
 cmsRouter.post("/website/publish", ...publicityAccess, publish);

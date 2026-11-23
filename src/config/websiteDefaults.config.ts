@@ -1,4 +1,7 @@
 export const defaultCopy = {
+  mission: "",
+  vision: "",
+  values: [],
   hero: {
     headline: "Faith. Friends. FUTA.",
     supportingText: "A community of students at the Federal University of Technology, Akure.",

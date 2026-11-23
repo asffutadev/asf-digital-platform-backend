@@ -8,7 +8,7 @@ import {
   websiteSettings,
   users,
 } from "../../db/schema/index.js";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { defaultCopy, defaultSections } from "../../config/websiteDefaults.config.js";
 
 export type Executor = typeof db | Transaction;
@@ -16,7 +16,6 @@ export type Executor = typeof db | Transaction;
 export async function getConfigWithSections(
   executor: Executor,
   status: "draft" | "published",
-  themeId: string,
 ) {
   const rows = await executor
     .select({
@@ -27,29 +26,48 @@ export async function getConfigWithSections(
     .from(websiteConfigurations)
     .leftJoin(websiteSections, eq(websiteSections.configId, websiteConfigurations.id))
     .leftJoin(mediaAssets, eq(mediaAssets.id, websiteSections.imageAssetId))
-    .where(and(eq(websiteConfigurations.status, status), eq(websiteConfigurations.themeId, themeId)))
+    .where(eq(websiteConfigurations.status, status))
     .orderBy(asc(websiteSections.order));
 
   const first = rows[0]?.config;
   if (!first) return null;
 
+  const sections = rows
+      .filter((row) => row.section)
+      .map((row) => ({ ...row.section!, imageAssetUrl: row.imageAssetUrl }));
+  const galleryIds = sections.flatMap((section) =>
+    section.type === "gallery_preview" && Array.isArray(section.items)
+      ? (section.items as any[]).map((item) => item?.imageAssetId).filter((id): id is string => typeof id === "string")
+      : [],
+  );
+  const galleryAssets = galleryIds.length
+    ? await executor.select({ id: mediaAssets.id, secureUrl: mediaAssets.secureUrl }).from(mediaAssets).where(inArray(mediaAssets.id, [...new Set(galleryIds)]))
+    : [];
+  const assetUrls = new Map(galleryAssets.map((asset) => [asset.id, asset.secureUrl]));
   return {
     ...first,
-    sections: rows
-      .filter((row) => row.section)
-      .map((row) => ({ ...row.section!, imageAssetUrl: row.imageAssetUrl })),
+    sections: sections.map((section) =>
+      section.type === "gallery_preview" && Array.isArray(section.items)
+        ? {
+            ...section,
+            items: (section.items as any[]).map((item) => ({
+              ...item,
+              imageUrl: typeof item?.imageAssetId === "string" ? assetUrls.get(item.imageAssetId) ?? null : null,
+            })),
+          }
+        : section,
+    ),
   };
 }
 
 export async function createDefaultConfig(
   executor: Executor,
   status: "draft" | "published",
-  themeId: string,
   updatedBy?: string,
 ) {
   const [config] = await executor
     .insert(websiteConfigurations)
-    .values({ status, themeId, copy: defaultCopy, updatedBy })
+    .values({ status, copy: defaultCopy, updatedBy })
     .returning();
 
   await executor.insert(websiteSections).values(
@@ -65,7 +83,7 @@ export async function createDefaultConfig(
     })),
   );
 
-  return getConfigWithSections(executor, status, themeId);
+  return getConfigWithSections(executor, status);
 }
 
 export async function updateDraft(executor: Executor, configId: string, copy: unknown, updatedBy: string) {
@@ -130,11 +148,10 @@ export async function createHistorySnapshot(
   return executor.insert(websitePublishHistory).values(snapshot).returning();
 }
 
-export async function pruneHistory(executor: Executor, themeId: string) {
+export async function pruneHistory(executor: Executor) {
   const keep = await executor
     .select({ id: websitePublishHistory.id })
     .from(websitePublishHistory)
-    .where(eq(websitePublishHistory.themeId, themeId))
     .orderBy(desc(websitePublishHistory.publishedAt))
     .offset(20);
 
@@ -143,7 +160,7 @@ export async function pruneHistory(executor: Executor, themeId: string) {
   }
 }
 
-export async function listHistory(executor: Executor, themeId: string) {
+export async function listHistory(executor: Executor) {
   return executor
     .select({
       id: websitePublishHistory.id,
@@ -154,15 +171,14 @@ export async function listHistory(executor: Executor, themeId: string) {
     })
     .from(websitePublishHistory)
     .leftJoin(users, eq(users.id, websitePublishHistory.publishedBy))
-    .where(eq(websitePublishHistory.themeId, themeId))
     .orderBy(desc(websitePublishHistory.publishedAt));
 }
 
-export async function findHistory(executor: Executor, themeId: string, historyId: string) {
+export async function findHistory(executor: Executor, historyId: string) {
   const [row] = await executor
     .select()
     .from(websitePublishHistory)
-    .where(and(eq(websitePublishHistory.id, historyId), eq(websitePublishHistory.themeId, themeId)))
+    .where(eq(websitePublishHistory.id, historyId))
     .limit(1);
   return row ?? null;
 }
@@ -179,18 +195,3 @@ export async function setActiveThemeId(executor: Executor, themeId: string) {
     .onConflictDoUpdate({ target: websiteSettings.id, set: { activeThemeId: themeId } });
 }
 
-export async function listThemeVersions(executor: Executor, themeIds: string[]) {
-  const rows = await executor
-    .select({
-      themeId: websiteConfigurations.themeId,
-      status: websiteConfigurations.status,
-      version: websiteConfigurations.version,
-    })
-    .from(websiteConfigurations);
-
-  return themeIds.map((themeId) => ({
-    themeId,
-    draftVersion: rows.find((row) => row.themeId === themeId && row.status === "draft")?.version ?? null,
-    publishedVersion: rows.find((row) => row.themeId === themeId && row.status === "published")?.version ?? null,
-  }));
-}

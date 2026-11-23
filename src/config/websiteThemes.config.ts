@@ -17,7 +17,7 @@ export type WebsiteSectionType =
   | "custom_content";
 
 export type WebsiteTheme = {
-  id: `theme-${1 | 2 | 3 | 4}`;
+  id: "classic-auditoria" | "picture-dominant" | "editorial";
   name: string;
   description: string;
   supportedSectionTypes: readonly WebsiteSectionType[];
@@ -44,32 +44,26 @@ const allSectionTypes: readonly WebsiteSectionType[] = [
 
 export const websiteThemes: readonly WebsiteTheme[] = [
   {
-    id: "theme-1",
-    name: "Theme 1",
-    description: "Predefined website theme 1.",
+    id: "classic-auditoria",
+    name: "Classic Auditoria",
+    description: "Classic, balanced fellowship website.",
     supportedSectionTypes: allSectionTypes,
   },
   {
-    id: "theme-2",
-    name: "Theme 2",
-    description: "Predefined website theme 2.",
+    id: "picture-dominant",
+    name: "Picture-Dominant",
+    description: "Image-led fellowship website.",
     supportedSectionTypes: allSectionTypes,
   },
   {
-    id: "theme-3",
-    name: "Theme 3",
-    description: "Predefined website theme 3.",
-    supportedSectionTypes: allSectionTypes,
-  },
-  {
-    id: "theme-4",
-    name: "Theme 4",
-    description: "Predefined website theme 4.",
+    id: "editorial",
+    name: "Editorial",
+    description: "Story-led editorial fellowship website.",
     supportedSectionTypes: allSectionTypes,
   },
 ];
 
-export const defaultThemeId = "theme-1" as const;
+export const defaultThemeId = "classic-auditoria" as const;
 
 export function getWebsiteTheme(themeId: string) {
   return websiteThemes.find((theme) => theme.id === themeId);

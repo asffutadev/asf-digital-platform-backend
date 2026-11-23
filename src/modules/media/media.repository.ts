@@ -87,6 +87,7 @@ export async function findAssetReferences(id: string) {
     announcementAttachments,
     websiteCopies,
     websiteImageUrls,
+    websiteImageAssetIds,
     websiteJson,
     websiteHistory,
     bibleStudyJson,
@@ -105,6 +106,7 @@ export async function findAssetReferences(id: string) {
       .where(sql`${websiteConfigurations.copy}::text ILIKE '%' || ${id} || '%'`)
       .limit(1),
     db.select({ id: websiteSections.id }).from(websiteSections).where(eq(websiteSections.imageUrl, id)).limit(1),
+    db.select({ id: websiteSections.id }).from(websiteSections).where(eq(websiteSections.imageAssetId, id)).limit(1),
     db
       .select({ id: websiteSections.id })
       .from(websiteSections)
@@ -138,6 +140,7 @@ export async function findAssetReferences(id: string) {
     announcementAttachments.length ? "announcements.attachment_asset_ids" : null,
     websiteCopies.length ? "website_configurations.copy" : null,
     websiteImageUrls.length ? "website_sections.image_url" : null,
+    websiteImageAssetIds.length ? "website_sections.image_asset_id" : null,
     websiteJson.length ? "website_sections.json" : null,
     websiteHistory.length ? "website_publish_history" : null,
     bibleStudyJson.length ? "bible_studies" : null,
