@@ -8,3 +8,9 @@ cookies.txt
 cms-*-backup.json
 cms-*-after-*.json
 cms-*.json
+.env.test
+report
+report*/
+docs/regression-logs/
+"report 5/"
+"report 6/"

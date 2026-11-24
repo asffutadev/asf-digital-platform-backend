@@ -9,16 +9,20 @@ const listSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+const programListSchema = listSchema.extend({
+  when: z.enum(["upcoming", "past"]).default("upcoming"),
+});
+
 function cache(res: Response) {
   res.set("Cache-Control", "public, max-age=60");
 }
 
 export async function listPrograms(req: Request, res: Response, next: NextFunction) {
   try {
-    const parsed = listSchema.safeParse(req.query);
+    const parsed = programListSchema.safeParse(req.query);
     if (!parsed.success) throw AppError.badRequest("Invalid public query", "VALIDATION_ERROR", parsed.error.flatten().fieldErrors);
     cache(res);
-    const result = await repo.listPrograms(parsed.data.page, parsed.data.limit);
+    const result = await repo.listPrograms(parsed.data.page, parsed.data.limit, parsed.data.when);
     return sendSuccess(res, result.data, "Programs retrieved", { total: result.total, page: parsed.data.page, limit: parsed.data.limit });
   } catch (error) { next(error); }
 }

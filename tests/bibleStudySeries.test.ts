@@ -165,23 +165,25 @@ describe("Bible Study Series", () => {
     logResponse("Bible Study Series", "Admin -> GET series (should see all drafts)", res.status, res.body);
     expect(res.status).toBe(200);
     expect(res.body.data.lessons.length).toBe(3);
-    expect(res.body.data.lessons[0]).toMatchObject({
+    const firstLesson = res.body.data.lessons.find((lesson: any) => lesson.id === firstLessonId);
+    expect(firstLesson).toBeDefined();
+    expect(firstLesson).toMatchObject({
       id: firstLessonId,
       studyHeading: "SERIES HEADING ONE",
       aims: ["Series aim one", "Series aim two"],
       foodForThought: "Series thought one.",
     });
 
-    const listRes = await request(app).get("/api/bible-study?status=draft").set("Cookie", adminCookie);
+    const listRes = await request(app).get("/api/bible-study?status=draft&limit=100").set("Cookie", adminCookie);
     expect(listRes.status).toBe(200);
-    expect(listRes.body.data).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        id: firstLessonId,
-        studyHeading: "SERIES HEADING ONE",
-        aims: ["Series aim one", "Series aim two"],
-        foodForThought: "Series thought one.",
-      }),
-    ]));
+    const listedLesson = listRes.body.data.find((lesson: any) => lesson.id === firstLessonId);
+    expect(listedLesson).toBeDefined();
+    expect(listedLesson).toMatchObject({
+      id: firstLessonId,
+      studyHeading: "SERIES HEADING ONE",
+      aims: ["Series aim one", "Series aim two"],
+      foodForThought: "Series thought one.",
+    });
 
     const detailRes = await request(app).get(`/api/bible-study/${firstLessonId}`).set("Cookie", adminCookie);
     expect(detailRes.status).toBe(200);

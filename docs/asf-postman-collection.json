@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "ASF Digital Platform R4",
-    "description": "Generated for test branch host ep-damp-rain-ayucoeg7-pooler.c-5.us-east-2.aws.neon.tech",
+    "description": "No response in this collection was verified on production. Generated for test branch host ep-damp-rain-ayucoeg7-pooler.c-5.us-east-2.aws.neon.tech",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -71,7 +71,7 @@
       "item": [
         {
           "name": "GET public programs",
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/programs?page=1&limit=20", "description": "No auth. Cache-Control public, max-age=60. sourceEnvironment=test" },
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/programs?when=upcoming&page=1&limit=20", "description": "No auth. Default when=upcoming and only Published/Active upcoming programs. Cancelled upcoming programs are excluded. Cache-Control public, max-age=60. sourceEnvironment=test" },
           "response": [
             { "name": "200 programs", "code": 200, "header": [{ "key": "Cache-Control", "value": "public, max-age=60" }], "_postman_previewlanguage": "json", "body": "{ \"success\": true, \"data\": [], \"meta\": { \"total\": 0, \"page\": 1, \"limit\": 20 } }" }
           ],
@@ -79,9 +79,18 @@
         },
         {
           "name": "GET public program by ID",
-          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/programs/:id", "description": "No auth. Only Active programs. sourceEnvironment=test" },
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/programs/:id", "description": "No auth. Active programs return status Published; Cancelled programs return status Cancelled. sourceEnvironment=test" },
           "response": [
+            { "name": "200 cancelled", "code": 200, "header": [{ "key": "Cache-Control", "value": "public, max-age=60" }], "_postman_previewlanguage": "json", "body": "{ \"success\": true, \"data\": { \"id\": \"uuid\", \"title\": \"Cancelled Program\", \"status\": \"Cancelled\", \"category\": \"Worship\", \"startTime\": \"2026-01-01T00:00:00.000Z\", \"endTime\": null, \"location\": null, \"description\": null, \"speaker\": null, \"speakerRole\": null, \"mode\": null, \"theme\": null, \"imageUrl\": null } }" },
             { "name": "404 draft", "code": 404, "_postman_previewlanguage": "json", "body": "{ \"success\": false, \"error\": { \"code\": \"PROGRAM_NOT_FOUND\" } }" }
+          ],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "GET past public programs",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/programs?when=past&page=1&limit=20", "description": "No auth. Past returns expired/past Active programs and Cancelled programs. Cancelled upcoming programs are never returned by when=upcoming. sourceEnvironment=test" },
+          "response": [
+            { "name": "200 past programs", "code": 200, "header": [{ "key": "Cache-Control", "value": "public, max-age=60" }], "_postman_previewlanguage": "json", "body": "{ \"success\": true, \"data\": [], \"meta\": { \"total\": 0, \"page\": 1, \"limit\": 20 } }" }
           ],
           "sourceEnvironment": "test"
         },

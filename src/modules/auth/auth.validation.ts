@@ -3,7 +3,7 @@ import { canonicalSubgroups } from "../../config/subgroups.config.js";
 
 export const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email("Invalid email address"),
-  password: z.string().min(4, "Password must be at least 4 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   name: z.string().trim().min(2, "Name is too short").max(255),
   departmentId: z
     .string({ message: "Department is required" })

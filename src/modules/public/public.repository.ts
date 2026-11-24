@@ -5,34 +5,46 @@ import { announcements, events, mediaAssets } from "../../db/schema/index.js";
 const publicProgramFields = {
   id: events.id,
   title: events.title,
-  category: events.category,
-  description: events.description,
-  location: events.location,
   startTime: events.startTime,
-  endTime: events.endTime,
-  speaker: events.speaker,
-  speakerRole: events.speakerRole,
-  mode: events.mode,
-  theme: events.theme,
-  imageUrl: mediaAssets.secureUrl,
+  location: events.location,
+  description: events.description,
+  guestMinister: events.speaker,
+  programType: sql<string>`CASE
+    WHEN ${events.mode} = 'Online / Zoom' THEN 'Online'
+    WHEN ${events.mode} IN ('In-Person', 'Hybrid') THEN 'Physical'
+  END`,
+  imageUrl: sql<string | null>`COALESCE(${mediaAssets.secureUrl}, ${events.imageUrl})`,
+  status: events.status,
 };
 
-export async function listPrograms(page: number, limit: number) {
+export async function listPrograms(page: number, limit: number, when: "upcoming" | "past") {
   const offset = (page - 1) * limit;
-  const where = eq(events.status, "Active");
+  const now = new Date();
+  const where = when === "upcoming"
+    ? and(eq(events.status, "Active"), sql`${events.startTime} >= ${now}`)!
+    : and(
+        or(eq(events.status, "Active"), eq(events.status, "Cancelled"))!,
+        sql`${events.startTime} < ${now}`,
+      )!;
   const [rows, totals] = await Promise.all([
     db.select(publicProgramFields).from(events).leftJoin(mediaAssets, eq(events.imageAssetId, mediaAssets.id))
       .where(where).orderBy(asc(events.startTime)).limit(limit).offset(offset),
     db.select({ count: count() }).from(events).where(where),
   ]);
-  return { data: rows, total: Number(totals[0]?.count ?? 0) };
+  return {
+    data: rows.map((row) => ({
+      ...row,
+      status: row.status === "Active" ? "Published" : row.status,
+    })),
+    total: Number(totals[0]?.count ?? 0),
+  };
 }
 
 export async function findProgram(id: string) {
   const [row] = await db.select(publicProgramFields).from(events).leftJoin(mediaAssets, eq(events.imageAssetId, mediaAssets.id))
-    .where(and(eq(events.id, id), eq(events.status, "Active")))
+    .where(and(eq(events.id, id), or(eq(events.status, "Active"), eq(events.status, "Cancelled"))))
     .limit(1);
-  return row ?? null;
+  return row ? { ...row, status: row.status === "Active" ? "Published" : row.status } : null;
 }
 
 const publicAnnouncementFields = {
@@ -41,7 +53,6 @@ const publicAnnouncementFields = {
   message: announcements.message,
   category: announcements.category,
   priority: announcements.priority,
-  isUrgent: announcements.isUrgent,
   expiresAt: announcements.expiresAt,
   publishedAt: announcements.publishedAt,
   imageUrl: mediaAssets.secureUrl,
@@ -49,9 +60,19 @@ const publicAnnouncementFields = {
 
 function publicAnnouncementWhere() {
   return and(
-    eq(announcements.status, "Published"),
+    or(
+      and(
+        eq(announcements.status, "Published"),
+        or(isNull(announcements.publishAt), sql`${announcements.publishAt} <= ${new Date()}`)!,
+      ),
+      and(
+        eq(announcements.status, "Scheduled"),
+        sql`${announcements.publishAt} <= ${new Date()}`,
+      ),
+    )!,
     eq(announcements.isPublic, true),
     or(isNull(announcements.expiresAt), gt(announcements.expiresAt, new Date()))!,
+    or(isNull(announcements.publishAt), sql`${announcements.publishAt} <= ${new Date()}`)!,
     sql`COALESCE(jsonb_array_length(${announcements.audience}->'gender'), 0) = 0`,
     sql`COALESCE(jsonb_array_length(${announcements.audience}->'subgroups'), 0) = 0`,
     sql`COALESCE(jsonb_array_length(${announcements.audience}->'levels'), 0) = 0`,

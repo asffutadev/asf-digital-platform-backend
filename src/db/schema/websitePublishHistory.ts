@@ -9,7 +9,7 @@ export const websitePublishHistory = pgTable(
     version: integer("version").notNull(),
     copy: jsonb("copy").notNull(),
     sections: jsonb("sections").notNull(),
-    publishedBy: uuid("published_by").references(() => users.id, { onDelete: "restrict" }),
+    publishedBy: uuid("published_by").references(() => users.id, { onDelete: "set null" }),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
   },
   (table) => [index("idx_website_publish_history_theme").on(table.themeId, table.publishedAt)]

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS "website_publish_history" (
 --> statement-breakpoint
 ALTER TABLE "website_sections" ADD COLUMN IF NOT EXISTS "image_asset_id" uuid;--> statement-breakpoint
 ALTER TABLE "website_publish_history" DROP CONSTRAINT IF EXISTS "website_publish_history_published_by_users_id_fk";--> statement-breakpoint
-ALTER TABLE "website_publish_history" ADD CONSTRAINT "website_publish_history_published_by_users_id_fk" FOREIGN KEY ("published_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "website_publish_history" ADD CONSTRAINT "website_publish_history_published_by_users_id_fk" FOREIGN KEY ("published_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "idx_website_publish_history_theme" ON "website_publish_history" USING btree ("theme_id","published_at");--> statement-breakpoint
 ALTER TABLE "website_sections" DROP CONSTRAINT IF EXISTS "website_sections_image_asset_id_media_assets_id_fk";--> statement-breakpoint
 ALTER TABLE "website_sections" ADD CONSTRAINT "website_sections_image_asset_id_media_assets_id_fk" FOREIGN KEY ("image_asset_id") REFERENCES "public"."media_assets"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint

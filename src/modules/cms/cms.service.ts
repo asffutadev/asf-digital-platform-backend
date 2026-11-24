@@ -25,6 +25,31 @@ function toResponseShape(config: any) {
   };
 }
 
+function toPublicResponseShape(config: any) {
+  return {
+    id: config.id,
+    version: config.version,
+    status: config.status,
+    copy: config.copy,
+    sections: config.sections
+      .filter((section: any) => section.isVisible !== false)
+      .map((section: any) => ({
+        sectionKey: section.sectionKey,
+        type: section.type,
+        title: section.title,
+        subtitle: section.subtitle,
+        description: section.description,
+        imageUrl: section.imageAssetUrl ?? section.imageUrl,
+        items: section.items,
+        configuration: section.configuration,
+        isCore: section.isCore,
+        order: section.order,
+        isVisible: section.isVisible,
+      })),
+    publishedAt: config.publishedAt,
+  };
+}
+
 async function ensureConfig(tx: repo.Executor, status: "draft" | "published", userId?: string) {
   const existing = await repo.getConfigWithSections(tx, status);
   if (existing) return existing;
@@ -52,8 +77,8 @@ export async function getDraft() {
 export async function getPublic() {
   const activeThemeId = await repo.getActiveThemeId(db);
   assertTheme(activeThemeId);
-  const published = await getPublished();
-  return { ...published, themeId: activeThemeId };
+  const published = await ensureConfig(db, "published");
+  return { ...toPublicResponseShape(published), themeId: activeThemeId };
 }
 
 export async function listThemes() {

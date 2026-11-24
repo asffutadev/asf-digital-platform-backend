@@ -4,7 +4,9 @@
 
 1. In the Neon ASF FUTA project, create a branch of `production` as the migration checkpoint.
    Keep the branch ID and timestamp with the release record.
-2. Export the exact production website configuration and section data as JSON:
+2. Create a database checkpoint branch and merge only migration-only changes there before touching production.
+   Record the source branch, checkpoint branch ID, commit, migration filenames, and timestamp.
+3. Export the exact production website configuration and section data as JSON:
 
 ```sql
 \copy (
@@ -18,12 +20,33 @@
 ) TO '/tmp/asf-website-sections.json';
 ```
 
-Store both files outside the application release, and record counts:
+Store both files outside the application release, in the release record, and record counts:
 
 ```sql
 SELECT status, count(*) FROM public.website_configurations GROUP BY status;
 SELECT count(*) FROM public.website_sections;
 ```
+
+Back up application code and migration metadata too: record the application commit, migration journal entry, and the exact 0037/0038 SQL files. A database-only copy is not sufficient for a reproducible merge.
+
+## 1A. Pre-flight merge
+
+1. Compare the 0037/0038 files in the application branch against the checkpoint branch.
+2. Confirm migrations are applied once, in order, and that no later migration creates or removes the CMS tables or `is_public`.
+3. Apply 0037 and 0038 to the checkpoint branch first.
+4. Merge the application branch into the checkpoint-branch test deployment only after migration verification passes.
+5. Confirm the test deployment uses the merged application commit and the migrated checkpoint database.
+
+Pre-flight SQL:
+
+```sql
+SELECT count(*) FROM public.website_configurations;
+SELECT count(*) FROM public.website_sections;
+SELECT count(*) FROM public.website_publish_history;
+SELECT count(*) FROM public.website_settings;
+```
+
+If these queries fail, stop; the migration prerequisite is missing.
 
 ## 2. Exact additive migration SQL
 
@@ -53,7 +76,7 @@ ALTER TABLE public.website_publish_history
 ALTER TABLE public.website_publish_history
   ADD CONSTRAINT "website_publish_history_published_by_users_id_fk"
   FOREIGN KEY ("published_by") REFERENCES public.users("id")
-  ON DELETE restrict ON UPDATE no action;
+  ON DELETE set null ON UPDATE no action;
 
 CREATE INDEX IF NOT EXISTS "idx_website_publish_history_theme"
   ON public.website_publish_history ("theme_id", "published_at");
@@ -158,6 +181,7 @@ Expected:
 - `website_sections.image_asset_id` is `uuid`;
 - `announcements.is_public` is `boolean`, `NOT NULL`, default `false`;
 - section and publish-history foreign keys and indexes exist.
+- `website_publish_history_published_by_users_id_fk` has `ON DELETE SET NULL`.
 
 ## 4. Safe deploy order
 

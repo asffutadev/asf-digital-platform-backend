@@ -8,6 +8,9 @@ vi.setConfig({ testTimeout: 300_000 });
 
 const officeUserIds: string[] = [];
 
+const exactKeys = (value: object, keys: string[]) =>
+  expect(Object.keys(value).sort()).toEqual([...keys].sort());
+
 // The GET responses contain extra fields (id, configId, timestamps) and nulls that the
 // save endpoint rejects or ignores, so reduce a snapshot to what saveDraft accepts.
 function toSaveShape(snapshot: any) {
@@ -89,11 +92,50 @@ describe("CMS (Website Content)", () => {
   }, 120000);
 
   it("GET /api/content/website is public, no auth required", async () => {
+    const save = await request(app)
+      .post("/api/content/website/draft")
+      .set("Cookie", adminCookie)
+      .send({
+        copy: { hero: { headline: "Public CMS exact shape" } },
+        sections: [
+          { sectionKey: "visible-section", type: "hero", title: "Visible", order: 1, isVisible: true },
+          { sectionKey: "hidden-section", type: "about", title: "Hidden", order: 2, isVisible: false },
+        ],
+      });
+    expect(save.status).toBe(200);
+    expect((await request(app).post("/api/content/website/publish").set("Cookie", adminCookie)).status).toBe(200);
+
     const res = await request(app).get("/api/content/website");
+    console.log("PUBLIC_CMS_FULL_JSON=" + JSON.stringify(res.body));
     logResponse("CMS", "Public -> GET /api/content/website", res.status, res.body);
     expect(res.status).toBe(200);
+    exactKeys(res.body.data, ["id", "version", "status", "copy", "sections", "publishedAt", "themeId"]);
     expect(res.body.data.status).toBe("published");
     expect(Array.isArray(res.body.data.sections)).toBe(true);
+    expect(res.body.data.sections.some((section: any) => section.sectionKey === "hidden-section")).toBe(false);
+    for (const section of res.body.data.sections) {
+      exactKeys(section, [
+        "sectionKey",
+        "type",
+        "title",
+        "subtitle",
+        "description",
+        "imageUrl",
+        "items",
+        "configuration",
+        "isCore",
+        "order",
+        "isVisible",
+      ]);
+    }
+    expect(res.body.data).not.toHaveProperty("history");
+    expect(res.body.data).not.toHaveProperty("draft");
+    expect(res.body.data).not.toHaveProperty("updatedBy");
+    expect(res.body.data).not.toHaveProperty("publishedBy");
+    const cmsJson = JSON.stringify(res.body);
+    for (const forbidden of ["draft", "history", "updatedBy", "publishedBy", "createdBy", "approvedBy", "attachmentAssetIds", "revisionNotes", "isUrgent", "userId", "user_id"]) {
+      expect(cmsJson, `public CMS must not contain ${forbidden}`).not.toContain(`"${forbidden}"`);
+    }
   });
 
   it("Member is BLOCKED from viewing the draft (no edit_draft permission)", async () => {
