@@ -27,6 +27,7 @@ async function postAnnouncement(title: string, message: string) {
       category: "Urgent",
       priority: "Urgent",
       isUrgent: true,
+      isPublic: false,
       attachmentAssetIds: [],
       audience: { gender: [], subgroups: [], levels: [] },
     },

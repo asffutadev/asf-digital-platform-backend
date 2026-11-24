@@ -26,8 +26,17 @@ function toResponseShape(config: any) {
 }
 
 async function ensureConfig(tx: repo.Executor, status: "draft" | "published", userId?: string) {
-  return (await repo.getConfigWithSections(tx, status))
-    ?? repo.createDefaultConfig(tx, status, userId);
+  const existing = await repo.getConfigWithSections(tx, status);
+  if (existing) return existing;
+
+  const created = await repo.createDefaultConfig(tx, status, userId);
+  if (!created) {
+    throw AppError.internal(
+      `Unable to create ${status} website configuration`,
+      "CMS_CONFIG_CREATE_FAILED",
+    );
+  }
+  return created;
 }
 
 export async function getPublished() {
