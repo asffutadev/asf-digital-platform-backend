@@ -21,6 +21,8 @@ export * from "./events.js";
 export * from "./announcements.js";
 export * from "./websiteConfigurations.js";
 export * from "./websiteSections.js";
+export * from "./websiteSettings.js";
+export * from "./websitePublishHistory.js";
 export * from "./systemEvents.js";
 export * from "./departments.js";
 export * from "./executiveOffices.js";

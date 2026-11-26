@@ -1,4 +1,4 @@
-import { pgTable, uuid, integer, jsonb, varchar, timestamp, check } from "drizzle-orm/pg-core";
+import { pgTable, uuid, integer, jsonb, varchar, timestamp, check, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { users } from "./users.js";
 
@@ -15,5 +15,8 @@ export const websiteConfigurations = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [check("chk_website_config_status", sql`${table.status} IN ('draft', 'published')`)]
+  (table) => [
+    check("chk_website_config_status", sql`${table.status} IN ('draft', 'published')`),
+    uniqueIndex("uq_website_config_status").on(table.status),
+  ]
 );

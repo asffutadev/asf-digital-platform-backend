@@ -27,6 +27,7 @@ const announcementFields = {
   category: z.enum(categories).default("General"),
   priority: z.enum(["Normal", "Urgent"]).default("Normal"),
   isUrgent: z.boolean().default(false),
+  isPublic: z.boolean().default(false),
   expiresAt: utcDateTime.optional(),
   publishAt: utcDateTime.optional(),
   imageAssetId: z.string().uuid("Image asset ID must be a UUID").optional(),

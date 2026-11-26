@@ -218,6 +218,122 @@ Database-level triggers/privilege restrictions preventing a separate database ac
 
 ## 9. Testing Results
 
+## 10. CMS Themes, Atomic Publishing, and Rollback
+
+### Files changed
+
+- `src/config/websiteThemes.config.ts`
+- `src/db/schema/websiteConfigurations.ts`
+- `src/db/schema/websiteSections.ts`
+- `src/db/schema/websiteSettings.ts`
+- `src/db/schema/websitePublishHistory.ts`
+- `src/db/schema/index.ts`
+- `src/db/migrations/0037_optimal_landau.sql`
+- `src/db/migrations/meta/0037_snapshot.json`
+- `src/db/migrations/meta/_journal.json`
+- `src/modules/cms/cms.repository.ts`
+- `src/modules/cms/cms.service.ts`
+- `src/modules/cms/cms.validation.ts`
+- `src/modules/cms/cms.controller.ts`
+- `src/modules/cms/cms.routes.ts`
+- `src/modules/media/media.repository.ts`
+- `tests/cms.test.ts`
+
+### Migration SQL
+
+```sql
+CREATE TABLE "website_settings" (
+	"id" integer PRIMARY KEY DEFAULT 1 NOT NULL,
+	"active_theme_id" varchar(60) DEFAULT 'theme-1' NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "website_publish_history" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"theme_id" varchar(60) NOT NULL,
+	"version" integer NOT NULL,
+	"copy" jsonb NOT NULL,
+	"sections" jsonb NOT NULL,
+	"published_by" uuid,
+	"published_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+ALTER TABLE "website_configurations" ADD COLUMN "theme_id" varchar(60) DEFAULT 'theme-1' NOT NULL;
+--> statement-breakpoint
+ALTER TABLE "website_sections" ADD COLUMN "image_asset_id" uuid;
+--> statement-breakpoint
+ALTER TABLE "website_publish_history" ADD CONSTRAINT "website_publish_history_published_by_users_id_fk" FOREIGN KEY ("published_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;
+--> statement-breakpoint
+CREATE INDEX "idx_website_publish_history_theme" ON "website_publish_history" USING btree ("theme_id","published_at");
+--> statement-breakpoint
+ALTER TABLE "website_sections" ADD CONSTRAINT "website_sections_image_asset_id_media_assets_id_fk" FOREIGN KEY ("image_asset_id") REFERENCES "public"."media_assets"("id") ON DELETE set null ON UPDATE no action;
+--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_website_config_theme_status" ON "website_configurations" USING btree ("theme_id","status");
+--> statement-breakpoint
+INSERT INTO "website_settings" ("id", "active_theme_id")
+VALUES (1, 'theme-1')
+ON CONFLICT ("id") DO NOTHING;
+```
+
+Migration was applied to the configured Neon test branch only. Production was not migrated.
+
+### Raw verification output
+
+The raw `information_schema.columns` query returned the following relevant rows:
+
+```text
+website_configurations | theme_id       | character varying | NO | 'theme-1'::character varying
+website_publish_history | id            | uuid              | NO | gen_random_uuid()
+website_publish_history | theme_id      | character varying | NO | null
+website_publish_history | version       | integer           | NO | null
+website_publish_history | copy          | jsonb             | NO | null
+website_publish_history | sections      | jsonb             | NO | null
+website_publish_history | published_by  | uuid              | YES | null
+website_publish_history | published_at  | timestamp with time zone | NO | null
+website_sections | image_asset_id       | uuid | YES | null
+website_settings | id                    | integer | NO | 1
+website_settings | active_theme_id       | character varying | NO | 'theme-1'::character varying
+```
+
+The raw settings-row query returned:
+
+```json
+[
+  {
+    "id": 1,
+    "active_theme_id": "theme-1"
+  }
+]
+```
+
+### Endpoint contract and observed response shapes
+
+- `GET /api/content/website` is public and returns `{ data: { themeId, version, status: "published", copy, sections } }` for the active theme.
+- `GET /api/content/website/themes` returns `{ data: { activeThemeId, themes: [{ id, name, description, supportedSectionTypes, draftVersion, publishedVersion }] } }`.
+- `GET/POST /api/content/website/draft?theme=theme-2` reads or writes only theme 2.
+- `POST /api/content/website/publish?theme=theme-2` publishes only theme 2 and creates a prior-state history snapshot.
+- `POST /api/content/website/draft/discard?theme=theme-2` and `POST /api/content/website/reset?theme=theme-2` affect only that theme's draft.
+- `GET /api/content/website/history?theme=theme-2` returns entries shaped as `{ id, version, publishedAt, publishedBy: { name } }` without copy or sections.
+- `POST /api/content/website/restore` accepts `{ theme, historyId }` and returns the restored draft; it never updates published content.
+- `POST /api/content/website/activate` accepts `{ theme, confirm: true }` and returns `{ data: { activeThemeId } }`.
+
+Observed error contracts include `400 CONFIRMATION_REQUIRED`, `400 VALIDATION_ERROR`, `404 HISTORY_NOT_FOUND`, `409 THEME_NOT_PUBLISHED`, and `403` for non-publicity writes.
+
+### Raw test output
+
+```text
+Test Files  1 passed (1)
+Tests       21 passed (21)
+Duration    478.68s
+```
+
+The CMS suite covered theme isolation, history creation, 20-snapshot pruning, draft-only restore, activation confirmation, active-theme public reads, invalid theme/type validation, transactional rollback after a foreign-key failure, and publicity-coordinator authorization.
+
+### Uncertainty and follow-up
+
+- The four registry names and descriptions intentionally remain generic placeholders (`Theme 1` through `Theme 4`) because the frontend design specification was not provided.
+- The migration must be applied separately to production by the operator; it was deliberately not run against production.
+- The test branch now contains CMS test data created by the integration suite; the existing test cleanup restores the captured active/live theme state used by `cms.test.ts`.
+
 Final confirmed complete-suite result:
 
 - Test files: 22 passed.

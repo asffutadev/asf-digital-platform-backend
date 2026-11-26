@@ -1,4 +1,7 @@
 export const defaultCopy = {
+  mission: "",
+  vision: "",
+  values: [],
   hero: {
     headline: "Faith. Friends. FUTA.",
     supportingText: "A community of students at the Federal University of Technology, Akure.",
@@ -38,7 +41,7 @@ export const defaultCopy = {
     locationName: "FUTA",
     mainGatheringName: "Sunday Service",
     serviceTime: "8:00 AM",
-    serviceVenue: "Fellowship Hall",
+    serviceVenue: "ASF Glory Tabernacle, Off Illoyin Street, FUTA Southgate, Akure, Ondo State, Nigeria",
     directionsCtaText: "Get Directions",
   },
   cta: {

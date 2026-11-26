@@ -21,6 +21,7 @@ import { eventsRouter } from "./modules/events/events.routes.js";
 import { announcementsRouter } from "./modules/announcements/announcements.routes.js";
 import { systemRouter } from "./modules/system/system.routes.js";
 import { cmsRouter } from "./modules/cms/cms.routes.js";
+import { publicRouter } from "./modules/public/public.routes.js";
 import { departmentsRouter } from "./modules/departments/departments.routes.js";
 import { presidentRouter } from "./modules/president/president.routes.js";
 import { governanceRouter } from "./modules/governance/governance.routes.js";
@@ -30,11 +31,27 @@ import { publicityRouter } from "./modules/publicity/publicity.routes.js";
 
 export const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(helmet());
 
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin(origin, callback) {
+      const allowedOrigins = new Set([
+        env.FRONTEND_URL,
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+        "http://127.0.0.1:3000",
+      ]);
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    },
     credentials: true,
   })
 );
@@ -60,6 +77,7 @@ app.use("/api/events", eventsRouter);
 app.use("/api/announcements", announcementsRouter);
 app.use("/api/system", systemRouter);
 app.use("/api/content", cmsRouter);
+app.use("/api/public", publicRouter);
 app.use("/api/departments", departmentsRouter);
 app.use("/api/president", presidentRouter);
 app.use("/api", governanceRouter);

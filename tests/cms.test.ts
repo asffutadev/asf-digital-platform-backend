@@ -8,6 +8,9 @@ vi.setConfig({ testTimeout: 300_000 });
 
 const officeUserIds: string[] = [];
 
+const exactKeys = (value: object, keys: string[]) =>
+  expect(Object.keys(value).sort()).toEqual([...keys].sort());
+
 // The GET responses contain extra fields (id, configId, timestamps) and nulls that the
 // save endpoint rejects or ignores, so reduce a snapshot to what saveDraft accepts.
 function toSaveShape(snapshot: any) {
@@ -28,6 +31,7 @@ describe("CMS (Website Content)", () => {
   let memberCookie: string;
   let publishedSnapshot: any;
   let draftSnapshot: any;
+  let activeThemeBefore: string;
 
   it("setup: a Publicity Coordinator, snapshot the live site, register a plain member", async () => {
     const publicity = await registerWithOffice("cms-publicity", "publicity-coordinator");
@@ -38,6 +42,9 @@ describe("CMS (Website Content)", () => {
     const pub = await request(app).get("/api/content/website");
     expect(pub.status).toBe(200);
     publishedSnapshot = pub.body.data;
+    const themes = await request(app).get("/api/content/website/themes");
+    expect(themes.status).toBe(200);
+    activeThemeBefore = themes.body.data.activeThemeId;
     const drf = await request(app).get("/api/content/website/draft").set("Cookie", adminCookie);
     logResponse("CMS", "setup: snapshot draft (as Publicity)", drf.status, drf.body);
     expect(drf.status).toBe(200);
@@ -61,6 +68,14 @@ describe("CMS (Website Content)", () => {
       const republish = await request(app).post("/api/content/website/publish").set("Cookie", adminCookie);
       if (republish.status !== 200) throw new Error(`CMS restore failed: republishing returned ${republish.status}`);
 
+      if (activeThemeBefore !== "classic-auditoria") {
+        const reactivate = await request(app)
+          .post("/api/content/website/activate")
+          .set("Cookie", adminCookie)
+          .send({ themeId: activeThemeBefore, confirm: true });
+        if (reactivate.status !== 200) throw new Error(`CMS restore failed: reactivating ${activeThemeBefore} returned ${reactivate.status}`);
+      }
+
       const saveDraft = await request(app)
         .post("/api/content/website/draft")
         .set("Cookie", adminCookie)
@@ -77,11 +92,50 @@ describe("CMS (Website Content)", () => {
   }, 120000);
 
   it("GET /api/content/website is public, no auth required", async () => {
+    const save = await request(app)
+      .post("/api/content/website/draft")
+      .set("Cookie", adminCookie)
+      .send({
+        copy: { hero: { headline: "Public CMS exact shape" } },
+        sections: [
+          { sectionKey: "visible-section", type: "hero", title: "Visible", order: 1, isVisible: true },
+          { sectionKey: "hidden-section", type: "about", title: "Hidden", order: 2, isVisible: false },
+        ],
+      });
+    expect(save.status).toBe(200);
+    expect((await request(app).post("/api/content/website/publish").set("Cookie", adminCookie)).status).toBe(200);
+
     const res = await request(app).get("/api/content/website");
+    console.log("PUBLIC_CMS_FULL_JSON=" + JSON.stringify(res.body));
     logResponse("CMS", "Public -> GET /api/content/website", res.status, res.body);
     expect(res.status).toBe(200);
+    exactKeys(res.body.data, ["id", "version", "status", "copy", "sections", "publishedAt", "themeId"]);
     expect(res.body.data.status).toBe("published");
     expect(Array.isArray(res.body.data.sections)).toBe(true);
+    expect(res.body.data.sections.some((section: any) => section.sectionKey === "hidden-section")).toBe(false);
+    for (const section of res.body.data.sections) {
+      exactKeys(section, [
+        "sectionKey",
+        "type",
+        "title",
+        "subtitle",
+        "description",
+        "imageUrl",
+        "items",
+        "configuration",
+        "isCore",
+        "order",
+        "isVisible",
+      ]);
+    }
+    expect(res.body.data).not.toHaveProperty("history");
+    expect(res.body.data).not.toHaveProperty("draft");
+    expect(res.body.data).not.toHaveProperty("updatedBy");
+    expect(res.body.data).not.toHaveProperty("publishedBy");
+    const cmsJson = JSON.stringify(res.body);
+    for (const forbidden of ["draft", "history", "updatedBy", "publishedBy", "createdBy", "approvedBy", "attachmentAssetIds", "revisionNotes", "isUrgent", "userId", "user_id"]) {
+      expect(cmsJson, `public CMS must not contain ${forbidden}`).not.toContain(`"${forbidden}"`);
+    }
   });
 
   it("Member is BLOCKED from viewing the draft (no edit_draft permission)", async () => {
@@ -200,5 +254,125 @@ describe("CMS (Website Content)", () => {
     const res = await request(app).get("/api/content/website/draft");
     logResponse("CMS", "No cookie -> GET draft", res.status, res.body);
     expect(res.status).toBe(401);
+  });
+
+  it("Shared content is edited and published once regardless of theme registry", async () => {
+    const before = await request(app).get("/api/content/website");
+    const save = await request(app)
+      .post("/api/content/website/draft")
+      .set("Cookie", adminCookie)
+      .send({
+        copy: { hero: { headline: "Shared CMS Content" } },
+        sections: [{ sectionKey: "shared-hero", type: "hero", title: "Shared Hero", order: 1 }],
+      });
+    expect(save.status).toBe(200);
+    const publish = await request(app).post("/api/content/website/publish").set("Cookie", adminCookie);
+    expect(publish.status).toBe(200);
+    const after = await request(app).get("/api/content/website");
+    expect(after.body.data.themeId).toBe("classic-auditoria");
+    expect(after.body.data.copy.hero.headline).toBe("Shared CMS Content");
+    expect(after.body.data.copy.hero.headline).not.toBe(before.body.data.copy.hero.headline);
+  });
+
+  it("Publish history is written, restore changes only the draft, and activation requires confirmation", async () => {
+    const publishFirst = await request(app)
+      .post("/api/content/website/draft")
+      .set("Cookie", adminCookie)
+      .send({ copy: { hero: { headline: "Restore Published" } }, sections: [{ type: "hero", title: "Hero", order: 1 }] });
+    expect(publishFirst.status).toBe(200);
+    expect((await request(app).post("/api/content/website/publish").set("Cookie", adminCookie)).status).toBe(200);
+    const publishSecond = await request(app)
+      .post("/api/content/website/draft")
+      .set("Cookie", adminCookie)
+      .send({ copy: { hero: { headline: "Restore Current" } }, sections: [{ type: "hero", title: "Hero", order: 1 }] });
+    expect(publishSecond.status).toBe(200);
+    expect((await request(app).post("/api/content/website/publish").set("Cookie", adminCookie)).status).toBe(200);
+    const history = await request(app).get("/api/content/website/history").set("Cookie", adminCookie);
+    expect(history.status).toBe(200);
+    expect(history.body.data.length).toBeGreaterThan(0);
+    expect(history.body.data[0]).not.toHaveProperty("copy");
+
+    const unsaved = await request(app)
+      .post("/api/content/website/draft")
+      .set("Cookie", adminCookie)
+      .send({ copy: { hero: { headline: "Restore Unpublished" } }, sections: [{ type: "hero", title: "Hero", order: 1 }] });
+    expect(unsaved.status).toBe(200);
+    const restore = await request(app)
+      .post("/api/content/website/restore")
+      .set("Cookie", adminCookie)
+      .send({ historyId: history.body.data[0].id });
+    expect(restore.status).toBe(200);
+    expect((await request(app).get("/api/content/website/draft").set("Cookie", adminCookie)).body.data.copy.hero.headline)
+      .toBe("Restore Published");
+    expect((await request(app).get("/api/content/website")).body.data.themeId).toBe("classic-auditoria");
+
+    const missingConfirmation = await request(app)
+      .post("/api/content/website/activate")
+      .set("Cookie", adminCookie)
+      .send({ themeId: "picture-dominant" });
+    expect(missingConfirmation.status).toBe(400);
+    expect(missingConfirmation.body.error.code).toBe("CONFIRMATION_REQUIRED");
+
+    const activate = await request(app)
+      .post("/api/content/website/activate")
+      .set("Cookie", adminCookie)
+      .send({ themeId: "picture-dominant", confirm: true });
+    expect(activate.status).toBe(200);
+    expect((await request(app).get("/api/content/website")).body.data.themeId).toBe("picture-dominant");
+    const deactivate = await request(app)
+      .post("/api/content/website/activate")
+      .set("Cookie", adminCookie)
+      .send({ themeId: "classic-auditoria", confirm: true });
+    expect(deactivate.status).toBe(200);
+  });
+
+  it("Rejects bad section types with VALIDATION_ERROR", async () => {
+    const badType = await request(app)
+      .post("/api/content/website/draft")
+      .set("Cookie", adminCookie)
+      .send({ copy: {}, sections: [{ type: "not-allowed", title: "Bad", order: 1 }] });
+    expect(badType.status).toBe(400);
+    expect(badType.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("A failure during section replacement rolls the draft back unchanged", async () => {
+    const before = await request(app).get("/api/content/website/draft").set("Cookie", adminCookie);
+    const failed = await request(app)
+      .post("/api/content/website/draft")
+      .set("Cookie", adminCookie)
+      .send({
+        copy: { hero: { headline: "Must Roll Back" } },
+        sections: [{ type: "hero", title: "Broken Asset", order: 1, imageAssetId: "00000000-0000-0000-0000-000000000000" }],
+      });
+    expect(failed.status).toBe(500);
+    const after = await request(app).get("/api/content/website/draft").set("Cookie", adminCookie);
+    expect(after.body.data.copy).toEqual(before.body.data.copy);
+    expect(after.body.data.sections).toEqual(before.body.data.sections);
+  });
+
+  it("Keeps only the latest 20 history snapshots per theme", async () => {
+    const save = await request(app)
+      .post("/api/content/website/draft")
+      .set("Cookie", adminCookie)
+      .send({ copy: { hero: { headline: "History Seed" } }, sections: [{ type: "hero", title: "Hero", order: 1 }] });
+    expect(save.status).toBe(200);
+    for (let index = 0; index < 21; index += 1) {
+      const publish = await request(app).post("/api/content/website/publish").set("Cookie", adminCookie);
+      expect(publish.status).toBe(200);
+    }
+    const history = await request(app).get("/api/content/website/history").set("Cookie", adminCookie);
+    expect(history.status).toBe(200);
+    expect(history.body.data).toHaveLength(20);
+  }, 600_000);
+
+  it("Every CMS write remains protected by the publicity office", async () => {
+    const endpoints = [
+      ["/api/content/website/restore", { historyId: "00000000-0000-0000-0000-000000000000" }],
+      ["/api/content/website/activate", { themeId: "picture-dominant", confirm: true }],
+    ] as const;
+    for (const [endpoint, body] of endpoints) {
+      const response = await request(app).post(endpoint).set("Cookie", memberCookie).send(body);
+      expect(response.status).toBe(403);
+    }
   });
 });

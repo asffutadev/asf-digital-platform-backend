@@ -9,6 +9,18 @@ vi.setConfig({ testTimeout: 300_000 });
 
 const SAMPLE_PDF = path.resolve("tests/fixtures/sample-bible-study.pdf");
 const officeUserIds: string[] = [];
+interface ExtractedBibleStudy {
+  extracted: {
+    studyGuide: string[];
+    aims: string[];
+    studyHeading: string;
+    foodForThought: string | null;
+    memoryVerseRef: string;
+    memoryVerseText: string;
+    scriptureReferences: Array<{ raw: string; recognized: boolean }>;
+  };
+}
+
 afterAll(async () => { await removeOfficesOf(officeUserIds); }, 120_000);
 
 describe("Bible Study", () => {
@@ -73,16 +85,16 @@ describe("Bible Study", () => {
       foodForThought: lesson.foodForThought,
     });
 
-    const listRes = await request(app).get("/api/bible-study?status=draft").set("Cookie", adminCookie);
+    const listRes = await request(app).get("/api/bible-study?status=draft&limit=100").set("Cookie", adminCookie);
     expect(listRes.status).toBe(200);
-    expect(listRes.body.data).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        id: createRes.body.data.id,
-        studyHeading: lesson.studyHeading,
-        aims: lesson.aims,
-        foodForThought: lesson.foodForThought,
-      }),
-    ]));
+    const createdRow = listRes.body.data.find((row: any) => row.id === createRes.body.data.id);
+    expect(createdRow).toBeDefined();
+    expect(createdRow).toMatchObject({
+      id: createRes.body.data.id,
+      studyHeading: lesson.studyHeading,
+      aims: lesson.aims,
+      foodForThought: lesson.foodForThought,
+    });
   });
 
   it("Member is BLOCKED from uploading an outline PDF (no permission)", async () => {
@@ -101,7 +113,7 @@ describe("Bible Study", () => {
       .attach("file", SAMPLE_PDF);
     logResponse("Bible Study", "Admin -> upload real PDF outline", res.status, res.body);
     expect(res.status).toBe(200);
-    const studies = res.body.data.studies;
+    const studies: ExtractedBibleStudy[] = res.body.data.studies;
     expect(res.body.data.studiesFound).toBe(5);
     expect(studies).toHaveLength(5);
     expect(studies.map(({ extracted }) => extracted.studyGuide.length)).toEqual([4, 3, 3, 3, 3]);

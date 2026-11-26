@@ -7,6 +7,7 @@ import {
   mediaAssets,
   mediaPlacements,
   websiteConfigurations,
+  websitePublishHistory,
   websiteSections,
 } from "../../db/schema/index.js";
 import type { ListMediaQuery, UpdateMediaInput } from "./media.types.js";
@@ -86,7 +87,9 @@ export async function findAssetReferences(id: string) {
     announcementAttachments,
     websiteCopies,
     websiteImageUrls,
+    websiteImageAssetIds,
     websiteJson,
+    websiteHistory,
     bibleStudyJson,
   ] = await Promise.all([
     db.select({ id: mediaPlacements.id }).from(mediaPlacements).where(eq(mediaPlacements.currentAssetId, id)).limit(1),
@@ -103,12 +106,18 @@ export async function findAssetReferences(id: string) {
       .where(sql`${websiteConfigurations.copy}::text ILIKE '%' || ${id} || '%'`)
       .limit(1),
     db.select({ id: websiteSections.id }).from(websiteSections).where(eq(websiteSections.imageUrl, id)).limit(1),
+    db.select({ id: websiteSections.id }).from(websiteSections).where(eq(websiteSections.imageAssetId, id)).limit(1),
     db
       .select({ id: websiteSections.id })
       .from(websiteSections)
       .where(
         sql`${websiteSections.items}::text ILIKE '%' || ${id} || '%' OR ${websiteSections.configuration}::text ILIKE '%' || ${id} || '%'`
       )
+      .limit(1),
+    db
+      .select({ id: websitePublishHistory.id })
+      .from(websitePublishHistory)
+      .where(sql`${websitePublishHistory.copy}::text ILIKE '%' || ${id} || '%' OR ${websitePublishHistory.sections}::text ILIKE '%' || ${id} || '%'`)
       .limit(1),
     db
       .select({ id: bibleStudies.id })
@@ -131,7 +140,9 @@ export async function findAssetReferences(id: string) {
     announcementAttachments.length ? "announcements.attachment_asset_ids" : null,
     websiteCopies.length ? "website_configurations.copy" : null,
     websiteImageUrls.length ? "website_sections.image_url" : null,
+    websiteImageAssetIds.length ? "website_sections.image_asset_id" : null,
     websiteJson.length ? "website_sections.json" : null,
+    websiteHistory.length ? "website_publish_history" : null,
     bibleStudyJson.length ? "bible_studies" : null,
   ].filter((reference): reference is string => reference !== null);
 }

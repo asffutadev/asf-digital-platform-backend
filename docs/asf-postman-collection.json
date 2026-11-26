@@ -1,0 +1,173 @@
+{
+  "info": {
+    "name": "ASF Digital Platform R4",
+    "description": "No response in this collection was verified on production. Generated for test branch host ep-damp-rain-ayucoeg7-pooler.c-5.us-east-2.aws.neon.tech",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "cookie", "value": "" }
+  ],
+  "auth": { "type": "noauth" },
+  "item": [
+    {
+      "name": "CMS",
+      "item": [
+        {
+          "name": "GET shared public website",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/content/website",
+            "description": "Public. sourceEnvironment=test; host ep-damp-rain-ayucoeg7-pooler.c-5.us-east-2.aws.neon.tech"
+          },
+          "response": [
+            { "name": "200 shared published content", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "_postman_previewlanguage": "json", "body": "{\n  \"success\": true,\n  \"data\": {\n    \"version\": 1,\n    \"status\": \"published\",\n    \"copy\": { \"mission\": \"\", \"vision\": \"\", \"values\": [] },\n    \"sections\": [],\n    \"themeId\": \"classic-auditoria\"\n  }\n}" }
+          ],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "GET themes",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/content/themes", "description": "Public. sourceEnvironment=test" },
+          "response": [
+            { "name": "200 themes", "code": 200, "_postman_previewlanguage": "json", "body": "{\n  \"success\": true,\n  \"data\": {\n    \"activeThemeId\": \"classic-auditoria\",\n    \"themes\": [\n      { \"id\": \"classic-auditoria\", \"name\": \"Classic Auditoria\" },\n      { \"id\": \"picture-dominant\", \"name\": \"Picture-Dominant\" },\n      { \"id\": \"editorial\", \"name\": \"Editorial\" }\n    ]\n  }\n}" }
+          ],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "GET draft",
+          "request": { "method": "GET", "header": [{ "key": "Cookie", "value": "{{cookie}}" }], "url": "{{baseUrl}}/api/content/website/draft", "description": "Authenticated publicity coordinator. sourceEnvironment=test" },
+          "response": [
+            { "name": "401 unauthenticated", "code": 401, "_postman_previewlanguage": "json", "body": "{ \"success\": false, \"error\": { \"code\": \"UNAUTHORIZED\" } }" }
+          ],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "POST draft",
+          "request": { "method": "POST", "header": [{ "key": "Cookie", "value": "{{cookie}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"copy\": {\n    \"mission\": \"A clear mission\",\n    \"vision\": \"A clear vision\",\n    \"values\": [{ \"title\": \"Faith\", \"description\": \"Growing in Christ\" }]\n  },\n  \"sections\": []\n}" }, "url": "{{baseUrl}}/api/content/website/draft", "description": "Authenticated publicity coordinator. sourceEnvironment=test" },
+          "response": [
+            { "name": "400 invalid mission", "code": 400, "_postman_previewlanguage": "json", "body": "{ \"success\": false, \"error\": { \"code\": \"VALIDATION_ERROR\", \"details\": { \"copy\": {} } } }" }
+          ],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "POST publish",
+          "request": { "method": "POST", "header": [{ "key": "Cookie", "value": "{{cookie}}" }], "url": "{{baseUrl}}/api/content/website/publish", "description": "Authenticated publicity coordinator. sourceEnvironment=test" },
+          "response": [],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "POST activate",
+          "request": { "method": "POST", "header": [{ "key": "Cookie", "value": "{{cookie}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"themeId\": \"classic-auditoria\", \"confirm\": true }" }, "url": "{{baseUrl}}/api/content/website/activate", "description": "Authenticated publicity coordinator. sourceEnvironment=test" },
+          "response": [
+            { "name": "400 confirmation missing", "code": 400, "_postman_previewlanguage": "json", "body": "{ \"success\": false, \"error\": { \"code\": \"CONFIRMATION_REQUIRED\" } }" }
+          ],
+          "sourceEnvironment": "test"
+        }
+      ]
+    },
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "GET public programs",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/programs?when=upcoming&page=1&limit=20", "description": "No auth. Default when=upcoming and only Published/Active upcoming programs. Cancelled upcoming programs are excluded. Cache-Control public, max-age=60. sourceEnvironment=test" },
+          "response": [
+            { "name": "200 programs", "code": 200, "header": [{ "key": "Cache-Control", "value": "public, max-age=60" }], "_postman_previewlanguage": "json", "body": "{ \"success\": true, \"data\": [], \"meta\": { \"total\": 0, \"page\": 1, \"limit\": 20 } }" }
+          ],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "GET public program by ID",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/programs/:id", "description": "No auth. Active programs return status Published; Cancelled programs return status Cancelled. sourceEnvironment=test" },
+          "response": [
+            { "name": "200 cancelled", "code": 200, "header": [{ "key": "Cache-Control", "value": "public, max-age=60" }], "_postman_previewlanguage": "json", "body": "{ \"success\": true, \"data\": { \"id\": \"uuid\", \"title\": \"Cancelled Program\", \"status\": \"Cancelled\", \"category\": \"Worship\", \"startTime\": \"2026-01-01T00:00:00.000Z\", \"endTime\": null, \"location\": null, \"description\": null, \"speaker\": null, \"speakerRole\": null, \"mode\": null, \"theme\": null, \"imageUrl\": null } }" },
+            { "name": "404 draft", "code": 404, "_postman_previewlanguage": "json", "body": "{ \"success\": false, \"error\": { \"code\": \"PROGRAM_NOT_FOUND\" } }" }
+          ],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "GET past public programs",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/programs?when=past&page=1&limit=20", "description": "No auth. Past returns expired/past Active programs and Cancelled programs. Cancelled upcoming programs are never returned by when=upcoming. sourceEnvironment=test" },
+          "response": [
+            { "name": "200 past programs", "code": 200, "header": [{ "key": "Cache-Control", "value": "public, max-age=60" }], "_postman_previewlanguage": "json", "body": "{ \"success\": true, \"data\": [], \"meta\": { \"total\": 0, \"page\": 1, \"limit\": 20 } }" }
+          ],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "GET public announcements",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/announcements?page=1&limit=20", "description": "No auth. Only Published, is_public=true, unrestricted and non-expired. sourceEnvironment=test" },
+          "response": [
+            { "name": "200 announcements", "code": 200, "header": [{ "key": "Cache-Control", "value": "public, max-age=60" }], "_postman_previewlanguage": "json", "body": "{ \"success\": true, \"data\": [], \"meta\": { \"total\": 0, \"page\": 1, \"limit\": 20 } }" }
+          ],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "GET public announcement by ID",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/announcements/:id", "description": "No auth. sourceEnvironment=test" },
+          "response": [],
+          "sourceEnvironment": "test"
+        }
+      ]
+    },
+    {
+      "name": "Authenticated Programs",
+      "item": [
+        {
+          "name": "GET authenticated programs",
+          "request": { "method": "GET", "header": [{ "key": "Cookie", "value": "{{cookie}}" }], "url": "{{baseUrl}}/api/events", "description": "Authenticated. Publicity can see drafts. sourceEnvironment=test" },
+          "response": [],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "POST authenticated program",
+          "request": { "method": "POST", "header": [{ "key": "Cookie", "value": "{{cookie}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"title\": \"Public Program\", \"startTime\": \"2026-12-01T10:00:00Z\", \"location\": \"FUTA\", \"description\": \"Public description\", \"programType\": \"Physical\" }" }, "url": "{{baseUrl}}/api/events", "description": "Authenticated publicity coordinator. sourceEnvironment=test" },
+          "response": [],
+          "sourceEnvironment": "test"
+        }
+      ]
+    },
+    {
+      "name": "Authenticated Announcements",
+      "item": [
+        {
+          "name": "GET authenticated announcements",
+          "request": { "method": "GET", "header": [{ "key": "Cookie", "value": "{{cookie}}" }], "url": "{{baseUrl}}/api/announcements", "description": "Authenticated. sourceEnvironment=test" },
+          "response": [],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "POST announcement with isPublic",
+          "request": { "method": "POST", "header": [{ "key": "Cookie", "value": "{{cookie}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"title\": \"Public notice\", \"message\": \"Visible\", \"category\": \"General\", \"priority\": \"Normal\", \"isUrgent\": false, \"isPublic\": true, \"attachmentAssetIds\": [], \"audience\": { \"gender\": [], \"subgroups\": [], \"levels\": [] } }" }, "url": "{{baseUrl}}/api/announcements", "description": "Authenticated publicity coordinator. isPublic is publicity-only. sourceEnvironment=test" },
+          "response": [],
+          "sourceEnvironment": "test"
+        }
+      ]
+    },
+    {
+      "name": "Media",
+      "item": [
+        {
+          "name": "GET media assets",
+          "request": { "method": "GET", "header": [{ "key": "Cookie", "value": "{{cookie}}" }], "url": "{{baseUrl}}/api/media/assets", "description": "Authenticated publicity coordinator. sourceEnvironment=test" },
+          "response": [],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "GET media placements",
+          "request": { "method": "GET", "header": [{ "key": "Cookie", "value": "{{cookie}}" }], "url": "{{baseUrl}}/api/media/placements", "description": "Authenticated readability; this route uses no auth guard in its definition. sourceEnvironment=test" },
+          "response": [],
+          "sourceEnvironment": "test"
+        },
+        {
+          "name": "DELETE media asset in use",
+          "request": { "method": "DELETE", "header": [{ "key": "Cookie", "value": "{{cookie}}" }], "url": "{{baseUrl}}/api/media/assets/:id", "description": "Authenticated publicity coordinator. sourceEnvironment=test" },
+          "response": [
+            { "name": "409 MEDIA_ASSET_IN_USE", "code": 409, "_postman_previewlanguage": "json", "body": "{ \"success\": false, \"error\": { \"code\": \"MEDIA_ASSET_IN_USE\", \"details\": { \"references\": [\"website_sections.json\"] } } }" }
+          ],
+          "sourceEnvironment": "test"
+        }
+      ]
+    }
+  ]
+}

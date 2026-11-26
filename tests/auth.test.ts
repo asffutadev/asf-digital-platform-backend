@@ -36,6 +36,29 @@ describe("Auth", () => {
     sessionCookie = rawCookie!.split(";")[0];
   });
 
+  it("POST /api/auth/register enforces the 8-character password minimum", async () => {
+    const shortPassword = await request(app).post("/api/auth/register").send({
+      email: `vitest-short-password-${Date.now()}@example.com`,
+      password: "Abcd123",
+      name: "Short Password",
+      departmentId,
+      gender: "Male",
+      academicLevel: "100 Level",
+    });
+    expect(shortPassword.status).toBe(400);
+    expect(shortPassword.body.error.code).toBe("VALIDATION_ERROR");
+
+    const validPassword = await request(app).post("/api/auth/register").send({
+      email: `vitest-valid-password-${Date.now()}@example.com`,
+      password: "Abcd1234",
+      name: "Valid Password",
+      departmentId,
+      gender: "Female",
+      academicLevel: "100 Level",
+    });
+    expect(validPassword.status).toBe(201);
+  });
+
   it("POST /api/auth/register (missing gender rejected)", async () => {
     const res = await request(app).post("/api/auth/register").send({
       email: `vitest-nogender-${Date.now()}@example.com`,
