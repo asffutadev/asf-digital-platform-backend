@@ -41,7 +41,7 @@ export const defaultCopy = {
     locationName: "FUTA",
     mainGatheringName: "Sunday Service",
     serviceTime: "8:00 AM",
-    serviceVenue: "Fellowship Hall",
+    serviceVenue: "ASF Glory Tabernacle, Off Illoyin Street, FUTA Southgate, Akure, Ondo State, Nigeria",
     directionsCtaText: "Get Directions",
   },
   cta: {

@@ -1,6 +1,6 @@
 import { db } from "../../db/index.js";
 import { academicSessions, users, userAcademicHistory } from "../../db/schema/index.js";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, inArray } from "drizzle-orm";
 import type { Transaction } from "../../db/index.js";
 import type { CreateSessionInput } from "./academicSession.validation.js";
 
@@ -74,4 +74,53 @@ export async function findExistingHistory(tx: any, userId: string, sessionId: st
     .from(userAcademicHistory)
     .where(and(eq(userAcademicHistory.userId, userId), eq(userAcademicHistory.academicSessionId, sessionId)));
   return rows[0] ?? null;
+}
+
+export async function findExistingHistoryUserIds(
+  tx: Transaction,
+  userIds: string[],
+  sessionId: string
+) {
+  if (userIds.length === 0) return new Set<string>();
+  const rows = await tx
+    .select({ userId: userAcademicHistory.userId })
+    .from(userAcademicHistory)
+    .where(and(
+      inArray(userAcademicHistory.userId, userIds),
+      eq(userAcademicHistory.academicSessionId, sessionId)
+    ));
+  return new Set(rows.map((row) => row.userId));
+}
+
+export async function bulkProgressUsers(
+  tx: Transaction,
+  userIds: string[],
+  newLevel: string,
+  newMembershipStatus: string
+) {
+  if (userIds.length === 0) return;
+  await tx
+    .update(users)
+    .set({ academicLevel: newLevel, membershipStatus: newMembershipStatus, updatedAt: new Date() })
+    .where(inArray(users.id, userIds));
+}
+
+export async function recordHistoryBatch(
+  tx: Transaction,
+  entries: Array<{
+    userId: string;
+    sessionId: string;
+    level: string;
+    status: "Promoted" | "Graduated";
+  }>
+) {
+  if (entries.length === 0) return;
+  await tx.insert(userAcademicHistory).values(
+    entries.map((entry) => ({
+      userId: entry.userId,
+      academicSessionId: entry.sessionId,
+      academicLevel: entry.level,
+      progressionStatus: entry.status,
+    }))
+  );
 }

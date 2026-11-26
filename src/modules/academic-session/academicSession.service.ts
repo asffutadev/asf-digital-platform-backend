@@ -23,30 +23,68 @@ export async function activateAndProgress(sessionId: string) {
 
   return db.transaction(async (tx) => {
     const students = await repo.getActiveStudents(tx);
+    const existingIds = await repo.findExistingHistoryUserIds(
+      tx,
+      students.map((student) => student.id),
+      sessionId
+    );
+    const eligible = students.filter((student) => !existingIds.has(student.id));
+    const skippedCount = students.length - eligible.length;
+    const skippedUserIds = students
+      .filter((student) => existingIds.has(student.id))
+      .map((student) => student.id);
 
+    const batches = new Map<string, {
+      userIds: string[];
+      targetLevel: string;
+      targetMembershipStatus: "Active Student" | "Alumni";
+    }>();
+
+    for (const student of eligible) {
+      const rule = getProgressionRule(student.academicLevel, student.programDurationYears);
+      const key = `${rule.targetLevel}:${rule.targetMembershipStatus}`;
+      const batch = batches.get(key) ?? {
+        userIds: [],
+        targetLevel: rule.targetLevel,
+        targetMembershipStatus: rule.targetMembershipStatus,
+      };
+      batch.userIds.push(student.id);
+      batches.set(key, batch);
+    }
+
+    const historyEntries: Array<{
+      userId: string;
+      sessionId: string;
+      level: string;
+      status: "Promoted" | "Graduated";
+    }> = [];
     let promotedCount = 0;
     let graduatedCount = 0;
-    let skippedCount = 0;
-    const skippedUserIds: string[] = [];
 
-    for (const student of students) {
-      const existingHistory = await repo.findExistingHistory(tx, student.id, sessionId);
-      if (existingHistory) {
-        skippedCount++;
-        skippedUserIds.push(student.id);
-        continue;
-      }
-
-      const rule = getProgressionRule(student.academicLevel, student.programDurationYears);
-
-      await repo.progressUser(tx, student.id, rule.targetLevel, rule.targetMembershipStatus);
-
-      const historyStatus = rule.targetMembershipStatus === "Alumni" ? "Graduated" : "Promoted";
-      await repo.recordHistory(tx, student.id, sessionId, rule.targetLevel, historyStatus);
-
-      if (historyStatus === "Graduated") graduatedCount++;
-      else promotedCount++;
+    for (const batch of batches.values()) {
+      await repo.bulkProgressUsers(
+        tx,
+        batch.userIds,
+        batch.targetLevel,
+        batch.targetMembershipStatus
+      );
+      const status = batch.targetMembershipStatus === "Alumni" ? "Graduated" : "Promoted";
+      if (status === "Graduated") graduatedCount += batch.userIds.length;
+      else promotedCount += batch.userIds.length;
+      historyEntries.push(...batch.userIds.map((userId): {
+        userId: string;
+        sessionId: string;
+        level: string;
+        status: "Promoted" | "Graduated";
+      } => ({
+        userId,
+        sessionId,
+        level: batch.targetLevel,
+        status,
+      })));
     }
+
+    await repo.recordHistoryBatch(tx, historyEntries);
 
     await repo.deactivateCurrentSession(tx);
     await repo.activateSession(tx, sessionId);
